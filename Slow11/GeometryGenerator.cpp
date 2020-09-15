@@ -8,35 +8,35 @@ GeometryGenerator::MeshData GeometryGenerator::CreateBox(float px, float py, flo
     float h2 = 0.5f * height;
     float d2 = -0.5f * depth;
 
-    v[0] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,0.0f);
-    v[1] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 1.0f,0.0f,0.0f);
-    v[2] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
-    v[3] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+    v[0] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,0.0f  ,0.0f,0.0f);
+    v[1] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 1.0f,0.0f,0.0f   ,0.0f,1.0f);
+    v[2] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f ,1.0f,1.0f);
+    v[3] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f ,1.0f,0.0f);
 
-    v[4] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[5] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[6] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[7] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+    v[4] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[5] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[6] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    v[7] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    v[8] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[9] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[10] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[11] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+    v[8] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[9] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[10] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    v[11] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    v[12] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[13] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[14] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[15] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+    v[12] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[13] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[14] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    v[15] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    v[16] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[17] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[18] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[19] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+    v[16] = Vertex(px - w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[17] = Vertex(px - w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[18] = Vertex(px - w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    v[19] = Vertex(px - w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    v[20] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[21] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[22] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
-    v[23] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+    v[20] = Vertex(px + w2, py - h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[21] = Vertex(px + w2, py + h2, pz + d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[22] = Vertex(px + w2, py + h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    v[23] = Vertex(px + w2, py - h2, pz - d2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     meshData.Vertices.assign(&v[0], &v[24]);
     

@@ -42,6 +42,18 @@ struct TransformCBuffer
 
 //09-Input
 Input i_input;
+ID3D11RasterizerState* WireFrame;
+ComPtr<ID3D11SamplerState> sp_SamplerState;
+ComPtr<ID3D11ShaderResourceView> m_ATex;
+
+//10-light
+struct PSConstantStruct
+{
+    
+    Light::PointLight pl;
+} cbPerPixel;
+ID3D11Buffer* cbPixelCBuffer;
+Light TempLight;
 
 
 bool InitWinWindow(HINSTANCE hInstance, int nCmdShow);
@@ -68,6 +80,7 @@ struct Vertex
     XMFLOAT3 pos;
     XMFLOAT3 nor;
     XMFLOAT3 col;
+    XMFLOAT2 uv;
 };
 
 const D3D11_INPUT_ELEMENT_DESC layout[] =
@@ -75,6 +88,7 @@ const D3D11_INPUT_ELEMENT_DESC layout[] =
    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
    { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
    { "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    {"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,36,D3D11_INPUT_PER_VERTEX_DATA,0}
 };
 UINT numElements = ARRAYSIZE(layout);
 
@@ -334,6 +348,7 @@ bool InitScene()
             v[i].pos = box1.Vertices[i].Position;
             v[i].nor = box1.Vertices[i].Normal;
             v[i].col = box1.Vertices[i].Color;
+            v[i].uv = box1.Vertices[i].UV;
         }
         DWORD indices[36];
         for (int i = 0; i < 36; i++)
@@ -390,7 +405,7 @@ bool InitScene()
     viewport.MaxDepth = 1.0f;
 
     sp_context->RSSetViewports(1, &viewport);
-
+    
     D3D11_BUFFER_DESC cbbd;
     ZeroMemory(&cbbd, sizeof(D3D11_BUFFER_DESC));
     cbbd.Usage = D3D11_USAGE_DEFAULT;
@@ -400,13 +415,65 @@ bool InitScene()
     cbbd.MiscFlags = 0;
 
     result = sp_device->CreateBuffer(&cbbd, NULL, &simpleCBuffer);
+    
+    if (FAILED(result))
+    {
+        MessageBox(nullptr,
+            L"Create SimpleBuffer Failed", L"Error", MB_OK);
+        return 0;
+    }
+
+    D3D11_BUFFER_DESC ccbbd;
+    ZeroMemory(&ccbbd, sizeof(D3D11_BUFFER_DESC));
+    ccbbd.Usage = D3D11_USAGE_DEFAULT;
+    ccbbd.ByteWidth = sizeof(PSConstantStruct);
+    ccbbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    ccbbd.CPUAccessFlags = 0;
+    ccbbd.MiscFlags = 0;
+
+    result = sp_device->CreateBuffer(&ccbbd, NULL, &cbPixelCBuffer);
+
+    if (FAILED(result))
+    {
+        MessageBox(nullptr,
+            L"Create PerPixelBuffer Failed", L"Error", MB_OK);
+        return 0;
+    }
+
     camera.SetPosition(0.1f, 0.2f, -.5f);
     camera.SetRotation(0.2f, 0.3f, 0.0f);
     camera.GetProjMatrix();
 
+    D3D11_RASTERIZER_DESC wfdesc;
+    ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
+    wfdesc.FillMode = D3D11_FILL_WIREFRAME;
+    wfdesc.CullMode = D3D11_CULL_NONE;
+    result = sp_device->CreateRasterizerState(&wfdesc, &WireFrame);
 
+    //sp_context->RSSetState(WireFrame);ÊÇ·ñ¿ªÆôÏß¿ò
 
-    
+    result = CreateWICTextureFromFile(sp_device, L"tex.png", nullptr, m_ATex.GetAddressOf());
+    if (FAILED(result))
+    {
+        MessageBox(nullptr,
+            L"Create WIC Failed", L"Error", MB_OK);
+        return 0;
+    }
+
+    //SamplerState
+
+    D3D11_SAMPLER_DESC sampDesc;
+    ZeroMemory(&sampDesc, sizeof(sampDesc));
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    sp_device->CreateSamplerState(&sampDesc, sp_SamplerState.GetAddressOf());
+
     return true;
 }
 void UpdateScene()
@@ -441,12 +508,23 @@ void DrawScene()
     const float bgColor[] = {red, green, blue, 1.0f};
     sp_context->ClearRenderTargetView(sp_rtv, bgColor);
     sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,1.0f,0.0f);
-    sp_context->DrawIndexed(36, 0,0);
+
 
     tcbuffer.MVP = XMMatrixIdentity() * camera.GetViewMatrix() * camera.GetProjMatrix();
     tcbuffer.MVP = XMMatrixTranspose(tcbuffer.MVP);
     sp_context->UpdateSubresource(simpleCBuffer, 0, NULL, &tcbuffer, 0, 0);
     sp_context->VSSetConstantBuffers(0, 1, &simpleCBuffer);
+    sp_context->PSSetSamplers(0, 1, sp_SamplerState.GetAddressOf());
+    sp_context->PSSetShaderResources(0, 1, m_ATex.GetAddressOf());
+    cbPerPixel.pl = TempLight.CreatePointLight();
+    //cbPerPixel.mul = 2.0f;
+    sp_context->UpdateSubresource(cbPixelCBuffer, 0, NULL, &cbPerPixel,0,0);
+    sp_context->PSSetConstantBuffers(0, 1, &cbPixelCBuffer);
+
+    sp_context->VSSetShader(VS, 0, 0);
+    sp_context->PSSetShader(PS, 0, 0);
+
+    sp_context->DrawIndexed(36, 0, 0);
 
     sp_swapchain->Present(0, 0);
 }
@@ -485,6 +563,7 @@ void CleanUp()
     triangleVertBuffer->Release();
     VS->Release();
     PS->Release();
+    cbPixelCBuffer->Release();
 }
 
 HRESULT CreateShaderFromFile(

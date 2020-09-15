@@ -11,6 +11,8 @@
 #include "Camera.h"
 #include "GeometryGenerator.h"
 #include "Input.h"
+#include "Light.h"
+#include "WICTextureLoader.h"
 
 
 #pragma comment(lib,"d3d11.lib")
