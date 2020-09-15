@@ -1,22 +1,6 @@
 //commit 2
 
-#include <windows.h>
-#include <wrl/client.h>
-#include <string>
-#include <d3dcompiler.h>
-#include <d3d11.h>
-#include <directxcolors.h>
-#include "Camera.h"
-
-
-#pragma comment(lib,"d3d11.lib")
-#pragma comment(lib, "D3DCompiler.lib")
-#pragma comment(lib, "dxgi.lib")
-#pragma comment(lib, "dxguid.lib")
-#pragma comment(lib, "winmm.lib")
-
-using namespace DirectX;
-using namespace Microsoft::WRL;
+#include "SysDef.h"
 
 
 IDXGISwapChain* sp_swapchain;
@@ -56,6 +40,8 @@ struct TransformCBuffer
     XMMATRIX MVP;
 } tcbuffer;
 
+//09-Input
+Input i_input;
 
 
 bool InitWinWindow(HINSTANCE hInstance, int nCmdShow);
@@ -76,15 +62,19 @@ void CleanUp();
 
 struct Vertex
 {
-   // Vertex(){}
-   // Vertex(float x, float y, float z)
-    //    :pos(x, y, z) {}
-    XMFLOAT4 pos;
+    Vertex(){}
+    Vertex(float x, float y, float z)
+        :pos(x, y, z) {}
+    XMFLOAT3 pos;
+    XMFLOAT3 nor;
+    XMFLOAT3 col;
 };
 
 const D3D11_INPUT_ELEMENT_DESC layout[] =
 {
-   { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+   { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+   { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+   { "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 UINT numElements = ARRAYSIZE(layout);
 
@@ -98,6 +88,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
         PostQuitMessage(0);
+        break;
+    case WM_KEYDOWN:
+        i_input.KeyDown((KeyCode)wParam);
+        break;
+    case WM_KEYUP:
+        i_input.KeyUp((KeyCode)wParam);
         break;
     default:
         return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -163,7 +159,7 @@ bool InitWinWindow(HINSTANCE hInstance, int nCmdShow)
         g_szClassName,
         L"The title of my window",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 240, 120,
+        CW_USEDEFAULT, CW_USEDEFAULT, Width, Height,
         NULL, NULL, hInstance, NULL);
 
     if (hwnd == NULL)
@@ -324,88 +320,52 @@ bool InitScene()
             L"Create Pixel Shader Failed", L"Error", MB_OK);
         return 0;
     }
-   /* if (FAILED(hr))
+    GeometryGenerator geoGen;
+    
+    GeometryGenerator::MeshData box1 = geoGen.CreateBox(0.0f, 0.0f, 0.0f, .3f, .3f, .3f);
+  
+
+     UINT16 const vsize = box1.Vertices.size();
+    const UINT16 isize = box1.Indices.size();
     {
-        MessageBox(nullptr,
-            L"The VS file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-        return 0;
-    }
+        Vertex v[24];
+        for (int i = 0; i < 24; i++)
+        {
+            v[i].pos = box1.Vertices[i].Position;
+            v[i].nor = box1.Vertices[i].Normal;
+            v[i].col = box1.Vertices[i].Color;
+        }
+        DWORD indices[36];
+        for (int i = 0; i < 36; i++)
+        {
+            indices[i] = box1.Indices[i];
+        }
+        D3D11_BUFFER_DESC indexBufferDesc;
+        ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+        indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+        indexBufferDesc.ByteWidth = sizeof(DWORD) * 36;
+        indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        indexBufferDesc.CPUAccessFlags = 0;
+        indexBufferDesc.MiscFlags = 0;
 
-    //	HR(CreateShaderFromFile(L"HLSL\\Triangle_VS.cso", L"HLSL\\Triangle_VS.hlsl", "VS", "vs_5_0", blob.ReleaseAndGetAddressOf()));
-    Microsoft::WRL::ComPtr<ID3DBlob> blob;
-    //hr = CreateShaderFromFile(L"HLSL\\shadersVS.cso", L"HLSL\\shadersVS.hlsl", "VS", "vs_5_0", blob.ReleaseAndGetAddressOf());
-    hr = sp_device->CreateVertexShader(pVSBlob->GetBufferPointer(),
-        pVSBlob->GetBufferSize(), nullptr, &VS);
-    if (FAILED(hr))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Create Vertex Shader Failed", L"Error", MB_OK);
-        return 0;
-    }
-    //hr = CreateShaderFromFile(L"HLSL\\shadersPS.cso", L"HLSL\\shadersPS.hlsl", "PS", "ps_5_0", blob.ReleaseAndGetAddressOf());
-    hr = CompileShaderFromFile(L"shaders.fx", "PS", "ps_4_0", &pPSBlob);
-    if (FAILED(hr))
-    {
-        MessageBox(nullptr,
-            L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-        return 0;
-    }
-    hr = sp_device->CreatePixelShader(pPSBlob->GetBufferPointer(),
-        pPSBlob->GetBufferSize(), nullptr, &PS);
-    if (FAILED(hr))
-    {
-        pPSBlob->Release();
-        return 0;
-    }*/
+        D3D11_SUBRESOURCE_DATA idxData;
+        idxData.pSysMem = indices;
+        sp_device->CreateBuffer(&indexBufferDesc, &idxData, &IndexBuffer);
+        sp_context->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
+        D3D11_BUFFER_DESC vertexBufferDesc;
+        ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+        vertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+        vertexBufferDesc.ByteWidth = sizeof v;
+        vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        vertexBufferDesc.CPUAccessFlags = 0;
+        vertexBufferDesc.MiscFlags = 0;
 
-    Vertex v[] =
-    {
-       XMFLOAT4(-0.5f,-0.5f,0.5f,1.0f),
-         XMFLOAT4(-0.5f,0.5f,0.5f,1.0f) ,
-         XMFLOAT4(0.5f,0.5f,0.5f,1.0f),
-          XMFLOAT4(0.5f,-0.5f,0.5f,1.0f)
-    };
+        D3D11_SUBRESOURCE_DATA vertexBufferData;
 
-    DWORD indices[] =
-    {
-        0,1,2,
-        0,2,3,
-    };
-
-    D3D11_BUFFER_DESC indexBufferDesc;
-    ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
-    indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    indexBufferDesc.ByteWidth = sizeof(DWORD) * 2 * 3;
-    indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    indexBufferDesc.CPUAccessFlags = 0;
-    indexBufferDesc.MiscFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA idxData;
-    idxData.pSysMem = indices;
-    sp_device->CreateBuffer(&indexBufferDesc, &idxData, &IndexBuffer);
-    sp_context->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-    D3D11_BUFFER_DESC vertexBufferDesc;
-    ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
-    vertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-    vertexBufferDesc.ByteWidth = sizeof v;
-    vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    vertexBufferDesc.CPUAccessFlags = 0;
-    vertexBufferDesc.MiscFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA vertexBufferData;
-
-    ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
-    vertexBufferData.pSysMem = v;
-    hr = sp_device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &triangleVertBuffer);
-    if (FAILED(hr))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Create Buffer Failed", L"Error", MB_OK);
-        return 0;
+        ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
+        vertexBufferData.pSysMem = v;
+        hr = sp_device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &triangleVertBuffer);
     }
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
@@ -440,7 +400,8 @@ bool InitScene()
     cbbd.MiscFlags = 0;
 
     result = sp_device->CreateBuffer(&cbbd, NULL, &simpleCBuffer);
-    camera.SetPosition(0.0f, 0.2f, -0.5f);
+    camera.SetPosition(0.1f, 0.2f, -.5f);
+    camera.SetRotation(0.2f, 0.3f, 0.0f);
     camera.GetProjMatrix();
 
 
@@ -450,7 +411,21 @@ bool InitScene()
 }
 void UpdateScene()
 {
-   /* red += colormodr * 0.0005f;
+
+    if (i_input.IsKeyDown(0x41))
+    {
+        XMFLOAT3 pp = camera.GetPosition();
+        camera.SetPosition(pp.x, pp.y, pp.z + 0.01f);
+        camera.GetProjMatrix();
+    }
+    if (i_input.IsKeyDown(0x44))
+    {
+        XMFLOAT3 pp = camera.GetPosition();
+        camera.SetPosition(pp.x, pp.y, pp.z - 0.01f);
+        camera.GetProjMatrix();
+    }
+
+   red += colormodr * 0.0005f;
     green += colormodg * 0.0002f;
     blue += colormodeb * 0.0001;
     if (red >= 1.0f || red <= 0.0f)
@@ -458,7 +433,7 @@ void UpdateScene()
     if (green >= 1.0f || green <= 0.0f)
         colormodg *= -1;
     if (blue >= 1.0f || blue <= 0.0f)
-        colormodeb *= -1;*/
+        colormodeb *= -1;
 }
 
 void DrawScene()
@@ -466,7 +441,7 @@ void DrawScene()
     const float bgColor[] = {red, green, blue, 1.0f};
     sp_context->ClearRenderTargetView(sp_rtv, bgColor);
     sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,1.0f,0.0f);
-    sp_context->DrawIndexed(6, 0,0);
+    sp_context->DrawIndexed(36, 0,0);
 
     tcbuffer.MVP = XMMatrixIdentity() * camera.GetViewMatrix() * camera.GetProjMatrix();
     tcbuffer.MVP = XMMatrixTranspose(tcbuffer.MVP);

@@ -26,9 +26,9 @@ void Camera::SetRotation(float x, float y, float z)
 	c_ViewDirty = true;
 }
 
-XMVECTOR Camera::GetPosition()
+XMFLOAT3 Camera::GetPosition()
 {
-	return XMLoadFloat3(&c_position);
+	return c_position;
 }
 
 XMVECTOR Camera::GetRotation()
@@ -46,7 +46,7 @@ XMMATRIX Camera::GetProjMatrix()
 	up = XMVector3TransformCoord(up, rotationMatrix);
 	lookAt = pos + lookAt;
 	c_viewMatrix = XMMatrixLookAtLH(pos, lookAt, up);
-	c_projMatrix = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)800 / 600, 1.0f, 1000.0f);
+	c_projMatrix = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)800 / 600, 0.1f, 1000.0f);
 	return c_projMatrix;
 }
 

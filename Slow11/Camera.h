@@ -12,7 +12,7 @@ public:
 	void Update();
 	void SetPosition(float x, float y, float z);
 	void SetRotation(float x, float y, float z);
-	XMVECTOR GetPosition();
+	XMFLOAT3 GetPosition();
 	XMVECTOR GetRotation();
 	XMMATRIX GetProjMatrix();
 	XMMATRIX GetViewMatrix();
