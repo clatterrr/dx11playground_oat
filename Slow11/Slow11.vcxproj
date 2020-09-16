@@ -119,7 +119,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>F:\Projects\Helper\DirectXTK-master\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\Projects\Helper\imgui-master;F:\Projects\Helper\DirectXTK-master\Inc;F:\Projects\Helper\imgui-master\examples;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -145,6 +145,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\Helper\DirectXTK-master\Src\WICTextureLoader.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\examples\imgui_impl_dx11.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\imgui.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\imgui_demo.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\imgui_draw.cpp" />
+    <ClCompile Include="..\..\..\Helper\imgui-master\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="GeometryGenerator.cpp" />
     <ClCompile Include="Input.cpp" />
@@ -165,6 +171,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\Helper\DirectXTK-master\Inc\WICTextureLoader.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\examples\imgui_impl_dx11.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imconfig.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imgui.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imgui_internal.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imstb_rectpack.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imstb_textedit.h" />
+    <ClInclude Include="..\..\..\Helper\imgui-master\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="GeometryGenerator.h" />
     <ClInclude Include="Input.h" />

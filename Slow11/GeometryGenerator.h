@@ -31,6 +31,8 @@ public:
 		std::vector<UINT> Indices;
 	};
 	MeshData CreateBox(float px, float py, float pz, float width, float height, float depth);
+
+	MeshData CreateSphere(float px, float py, float pz, float r, int latitude, int magnitude);
 };
 
 

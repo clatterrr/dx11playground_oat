@@ -11,7 +11,7 @@ public:
 	{
 		XMFLOAT4 ambient;
 		XMFLOAT4 diffuse;
-		XMFLOAT4 specular;
+		XMFLOAT4 position;
 		XMFLOAT3 direction;
 		float pad;
 	};

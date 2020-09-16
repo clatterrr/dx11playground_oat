@@ -25,7 +25,7 @@ public:
 	int  MouseDeltaX() const;
 	int  MouseDeltaY() const;
 
-private:
+public:
 	bool m_keys[KEY_COUNT];
 	bool m_buttons[17];
 	int m_mouseDelta[2];

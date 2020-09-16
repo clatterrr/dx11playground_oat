@@ -54,7 +54,7 @@ struct PSConstantStruct
 } cbPerPixel;
 ID3D11Buffer* cbPixelCBuffer;
 Light TempLight;
-
+UINT totalIndices;
 
 bool InitWinWindow(HINSTANCE hInstance, int nCmdShow);
 bool Initd3dWindow(HINSTANCE hInstance);
@@ -70,7 +70,7 @@ int messageloop();
 void UpdateScene();
 void DrawScene();
 void CleanUp();
-
+float mousexpos = 0.0f;
 
 struct Vertex
 {
@@ -92,9 +92,14 @@ const D3D11_INPUT_ELEMENT_DESC layout[] =
 };
 UINT numElements = ARRAYSIZE(layout);
 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+
 // Step 4: the Window Procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+  //  if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+    //    return true;
     switch (msg)
     {
     case WM_CLOSE:
@@ -109,6 +114,32 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_KEYUP:
         i_input.KeyUp((KeyCode)wParam);
         break;
+    case WM_INPUT:
+    {
+        UINT rawInputSize = 48;
+        LPBYTE inputBuffer[48];
+        ZeroMemory(inputBuffer, rawInputSize);
+
+        GetRawInputData(
+            (HRAWINPUT)lParam,
+            RID_INPUT,
+            inputBuffer,
+            &rawInputSize,
+            sizeof(RAWINPUTHEADER));
+
+        RAWINPUT* raw = (RAWINPUT*)inputBuffer;
+
+        if (raw->header.dwType == RIM_TYPEMOUSE &&
+            raw->data.mouse.usFlags == MOUSE_MOVE_RELATIVE)
+        {
+            long xPosRelative = raw->data.mouse.lLastX;
+            long yPosrelative = raw->data.mouse.lLastY;
+            mousexpos = xPosRelative;
+            i_input.UpdateMousePos(xPosRelative, yPosrelative);
+            SetCursorPos(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+        }
+        break;
+    }
     default:
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
@@ -118,12 +149,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     LPSTR lpCmdLine, int nCmdShow)
 {
+
+
     if (!InitWinWindow(hInstance,nCmdShow))
     {
         MessageBox(NULL, L"Init WinWindow Failed!", L"Error!",
             MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
+
 
     if (!Initd3dWindow(hInstance))
     {
@@ -132,12 +166,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 0;
     }
 
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(sp_device, sp_context);
     if (!InitScene())
     {
         MessageBox(NULL, L"Init Scene Failed!", L"Error!",
             MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
+
+    RAWINPUTDEVICE Rid[1];
+    Rid[0].usUsagePage = 0x01;
+    Rid[0].usUsage = 0x02;
+    Rid[0].dwFlags = RIDEV_INPUTSINK;
+    Rid[0].hwndTarget = hwnd;
+    RegisterRawInputDevices(Rid, 1, sizeof(Rid[0]));
 
     messageloop();
 
@@ -242,6 +289,8 @@ bool Initd3dWindow(HINSTANCE hInstance)
 
     sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
 
+
+
     return true;
 }
 
@@ -279,43 +328,6 @@ bool InitScene()
         return 0;
     }
 
-    /*
-    //2
-    result = CreateShaderFromFile(L"shadersVS.hlsl.cso", L"shadersVS.hlsl", "VS", "vs_5_0", &pVSBlob);
-    if (FAILED(result))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Create Vertex Shader From File Failed", L"Error", MB_OK);
-        return 0;
-    }
-    result = CreateShaderFromFile(L"shadersPS.cso", L"shadersPS.hlsl", "PS", "ps_5_0", &pPSBlob);
-    if (FAILED(result))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Create Pixel Shader From File Failed", L"Error", MB_OK);
-        return 0;
-    }
-    //3
-    result = CompileShaderFromFile(L"shadersVS.hlsl", "VS", "vs_4_0", &pVSBlob);
-    if (FAILED(result))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Compile Vertex Shader From File Failed", L"Error", MB_OK);
-        return 0;
-    }
-    result = CompileShaderFromFile(L"shadersPS.hlsl", "PS", "ps_4_0", &pPSBlob);
-    if (FAILED(result))
-    {
-        pVSBlob->Release();
-        MessageBox(nullptr,
-            L"Compile Pixel Shader From File Failed", L"Error", MB_OK);
-        return 0;
-    }*/
-
-
     result = sp_device->CreateVertexShader(pVSBlob->GetBufferPointer(),
         pVSBlob->GetBufferSize(), NULL, &VS);
     if (FAILED(result))
@@ -336,42 +348,45 @@ bool InitScene()
     }
     GeometryGenerator geoGen;
     
-    GeometryGenerator::MeshData box1 = geoGen.CreateBox(0.0f, 0.0f, 0.0f, .3f, .3f, .3f);
+    //GeometryGenerator::MeshData box1 = geoGen.CreateBox(0.0f, 0.0f, 0.0f, .3f, .3f, .3f);
   
-
-     UINT16 const vsize = box1.Vertices.size();
-    const UINT16 isize = box1.Indices.size();
+    GeometryGenerator::MeshData box1 = geoGen.CreateSphere(0.0f, 0.0f, 0.0f, .2f, 10, 10);
+     UINT16  vsize = box1.Vertices.size();
+    UINT16 isize = box1.Indices.size();
     {
-        Vertex v[24];
-        for (int i = 0; i < 24; i++)
+        std::vector<Vertex> v;
+        v.resize(vsize);
+        for (int i = 0; i < vsize; i++)
         {
             v[i].pos = box1.Vertices[i].Position;
             v[i].nor = box1.Vertices[i].Normal;
             v[i].col = box1.Vertices[i].Color;
             v[i].uv = box1.Vertices[i].UV;
         }
-        DWORD indices[36];
-        for (int i = 0; i < 36; i++)
+        std::vector<UINT> indices;
+        indices.resize(isize);
+        for (int i = 0; i < isize; i++)
         {
             indices[i] = box1.Indices[i];
         }
+        totalIndices = isize;
         D3D11_BUFFER_DESC indexBufferDesc;
         ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
         indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-        indexBufferDesc.ByteWidth = sizeof(DWORD) * 36;
+        indexBufferDesc.ByteWidth = sizeof(UINT) * isize;
         indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         indexBufferDesc.CPUAccessFlags = 0;
         indexBufferDesc.MiscFlags = 0;
 
         D3D11_SUBRESOURCE_DATA idxData;
-        idxData.pSysMem = indices;
+        idxData.pSysMem = &indices[0];
         sp_device->CreateBuffer(&indexBufferDesc, &idxData, &IndexBuffer);
         sp_context->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
         D3D11_BUFFER_DESC vertexBufferDesc;
         ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
         vertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-        vertexBufferDesc.ByteWidth = sizeof v;
+        vertexBufferDesc.ByteWidth = sizeof(Vertex) * vsize;//不能用 sizeof v,否则大小就变成了0
         vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         vertexBufferDesc.CPUAccessFlags = 0;
         vertexBufferDesc.MiscFlags = 0;
@@ -379,7 +394,7 @@ bool InitScene()
         D3D11_SUBRESOURCE_DATA vertexBufferData;
 
         ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
-        vertexBufferData.pSysMem = v;
+        vertexBufferData.pSysMem = &v[0];
         hr = sp_device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &triangleVertBuffer);
     }
     UINT stride = sizeof(Vertex);
@@ -479,6 +494,7 @@ bool InitScene()
 void UpdateScene()
 {
 
+
     if (i_input.IsKeyDown(0x41))
     {
         XMFLOAT3 pp = camera.GetPosition();
@@ -491,16 +507,10 @@ void UpdateScene()
         camera.SetPosition(pp.x, pp.y, pp.z - 0.01f);
         camera.GetProjMatrix();
     }
-
-   red += colormodr * 0.0005f;
-    green += colormodg * 0.0002f;
-    blue += colormodeb * 0.0001;
-    if (red >= 1.0f || red <= 0.0f)
-        colormodr *= -1;
-    if (green >= 1.0f || green <= 0.0f)
-        colormodg *= -1;
-    if (blue >= 1.0f || blue <= 0.0f)
-        colormodeb *= -1;
+    
+   red = i_input.MouseDeltaX();
+   printf("resd = %d,",red);
+  
 }
 
 void DrawScene()
@@ -524,7 +534,20 @@ void DrawScene()
     sp_context->VSSetShader(VS, 0, 0);
     sp_context->PSSetShader(PS, 0, 0);
 
-    sp_context->DrawIndexed(36, 0, 0);
+    sp_context->DrawIndexed(totalIndices, 0, 0);
+
+    ImGui_ImplDX11_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+    bool show_demo_window = true;
+    ImGui::ShowDemoWindow(&show_demo_window);
+    ImGui::Begin("Another Window", &show_demo_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Text("Hello from another window!");
+
+    ImGui::Text("counter = %f", mousexpos);
+    ImGui::End();
+    ImGui::Render();
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
     sp_swapchain->Present(0, 0);
 }
@@ -566,83 +589,3 @@ void CleanUp()
     cbPixelCBuffer->Release();
 }
 
-HRESULT CreateShaderFromFile(
-    const WCHAR* csoFileNameInOut,
-    const WCHAR* hlslFileName,
-    LPCSTR entryPoint,
-    LPCSTR shaderModel,
-    ID3DBlob** ppBlobOut)
-{
-    HRESULT hr = S_OK;
-
-    // 寻找是否有已经编译好的顶点着色器
-    if (csoFileNameInOut && D3DReadFileToBlob(csoFileNameInOut, ppBlobOut) == S_OK)
-    {
-        return hr;
-    }
-    else
-    {
-        DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-        // 设置 D3DCOMPILE_DEBUG 标志用于获取着色器调试信息。该标志可以提升调试体验，
-        // 但仍然允许着色器进行优化操作
-        dwShaderFlags |= D3DCOMPILE_DEBUG;
-
-        // 在Debug环境下禁用优化以避免出现一些不合理的情况
-        dwShaderFlags |= D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-        ID3DBlob* errorBlob = nullptr;
-        hr = D3DCompileFromFile(hlslFileName, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint, shaderModel,
-            dwShaderFlags, 0, ppBlobOut, &errorBlob);
-        if (FAILED(hr))
-        {
-            if (errorBlob != nullptr)
-            {
-                OutputDebugStringA(reinterpret_cast<const char*>(errorBlob->GetBufferPointer()));
-            }
-            SAFE_RELEASE(errorBlob);
-            return hr;
-        }
-
-        // 若指定了输出文件名，则将着色器二进制信息输出
-        if (csoFileNameInOut)
-        {
-            return D3DWriteBlobToFile(*ppBlobOut, csoFileNameInOut, FALSE);
-        }
-    }
-
-    return hr;
-}
-
-HRESULT CompileShaderFromFile(WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut)
-{
-    HRESULT hr = S_OK;
-
-    DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-    // Set the D3DCOMPILE_DEBUG flag to embed debug information in the shaders.
-    // Setting this flag improves the shader debugging experience, but still allows 
-    // the shaders to be optimized and to run exactly the way they will run in 
-    // the release configuration of this program.
-    dwShaderFlags |= D3DCOMPILE_DEBUG;
-
-    // Disable optimizations to further improve shader debugging
-    dwShaderFlags |= D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-    //此处要加载d3dcompiler.lib库
-    ID3DBlob* pErrorBlob = nullptr;
-    hr = D3DCompileFromFile(szFileName, nullptr, nullptr, szEntryPoint, szShaderModel,
-        dwShaderFlags, 0, ppBlobOut, &pErrorBlob);
-    if (FAILED(hr))
-    {
-        if (pErrorBlob)
-        {
-            OutputDebugStringA(reinterpret_cast<const char*>(pErrorBlob->GetBufferPointer()));
-            pErrorBlob->Release();
-        }
-        return hr;
-    }
-    if (pErrorBlob) pErrorBlob->Release();
-
-    return S_OK;
-}
