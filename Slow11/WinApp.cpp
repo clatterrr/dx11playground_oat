@@ -38,13 +38,19 @@ Camera camera;
 struct TransformCBuffer
 {
     XMMATRIX MVP;
+    XMMATRIX gWorld;
+    XMMATRIX gView;
+    XMMATRIX gProj;
+    XMFLOAT4 gEyePos;
 } tcbuffer;
 
 //09-Input
 Input i_input;
 ID3D11RasterizerState* WireFrame;
 ComPtr<ID3D11SamplerState> sp_SamplerState;
-ComPtr<ID3D11ShaderResourceView> m_ATex;
+std::vector<ComPtr<ID3D11ShaderResourceView>> m_ATex;
+ComPtr<ID3D11DepthStencilState> DSSLessEqual;
+
 
 //10-light
 struct PSConstantStruct
@@ -55,6 +61,28 @@ struct PSConstantStruct
 ID3D11Buffer* cbPixelCBuffer;
 Light TempLight;
 UINT totalIndices;
+
+//11-cubemap -- failed ,wired skybox
+
+std::vector<GeometryGenerator::MeshData> meshs;
+ComPtr<ID3D11ShaderResourceView> skyCubeSRV;
+ID3D11VertexShader* skyCubeVS;
+ID3D11PixelShader* skyCubePS;
+ComPtr<ID3D11RasterizerState> RSNoCull;
+
+//12- render to texture
+ID3D11Texture2D* renderTargetTextureMap;
+ID3D11RenderTargetView* renderTargetViewMap;
+ID3D11ShaderResourceView* shaderResourceViewMap;
+ID3D11DepthStencilView* newdepthStencilView;
+ID3D11Texture2D* newdepthStencilBuffer;
+// Our map camera's view and projection matrices
+XMMATRIX mapView;
+XMMATRIX mapProjection;
+D3D11_VIEWPORT                                 viewport;
+D3D11_VIEWPORT						m_OutputViewPort = {};	// 输出所用的视口
+
+UINT vsize = 0, isize = 0, vk = 0, vi = 0;
 
 bool InitWinWindow(HINSTANCE hInstance, int nCmdShow);
 bool Initd3dWindow(HINSTANCE hInstance);
@@ -72,16 +100,7 @@ void DrawScene();
 void CleanUp();
 float mousexpos = 0.0f;
 
-struct Vertex
-{
-    Vertex(){}
-    Vertex(float x, float y, float z)
-        :pos(x, y, z) {}
-    XMFLOAT3 pos;
-    XMFLOAT3 nor;
-    XMFLOAT3 col;
-    XMFLOAT2 uv;
-};
+
 
 const D3D11_INPUT_ELEMENT_DESC layout[] =
 {
@@ -98,8 +117,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // Step 4: the Window Procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  //  if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
-    //    return true;
+    if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+        return true;
     switch (msg)
     {
     case WM_CLOSE:
@@ -184,7 +203,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     Rid[0].usUsage = 0x02;
     Rid[0].dwFlags = RIDEV_INPUTSINK;
     Rid[0].hwndTarget = hwnd;
-    RegisterRawInputDevices(Rid, 1, sizeof(Rid[0]));
+   // RegisterRawInputDevices(Rid, 1, sizeof(Rid[0]));
 
     messageloop();
 
@@ -286,7 +305,8 @@ bool Initd3dWindow(HINSTANCE hInstance)
 
     sp_device->CreateTexture2D(&depthStencilDesc, NULL, &depthStencilBuffer);
     sp_device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
-
+    sp_device->CreateTexture2D(&depthStencilDesc, NULL, &newdepthStencilBuffer);
+    sp_device->CreateDepthStencilView(newdepthStencilBuffer, NULL, &newdepthStencilView);
     sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
 
 
@@ -300,8 +320,7 @@ bool InitScene()
     ID3D10Blob* errorMessage = 0;
     ID3D10Blob* pVSBlob = nullptr;
     ID3D10Blob* pPSBlob = nullptr;
-    result = D3DCompileFromFile(L"shadersVS.hlsl", NULL, NULL, "VS", "vs_5_0",
-        D3DCOMPILE_ENABLE_STRICTNESS, 0, &pVSBlob, &errorMessage);
+    result = D3DCompileFromFile(L"shadersVS.hlsl", NULL, NULL, "VS", "vs_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pVSBlob, &errorMessage);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -309,8 +328,7 @@ bool InitScene()
             L"Compile Vertex Shader Failed", L"Error", MB_OK);
         return 0;
     }
-    result = sp_device->CreateInputLayout(layout, ARRAYSIZE(layout), pVSBlob->GetBufferPointer(),
-        pVSBlob->GetBufferSize(), &sp_VertexLayout);
+    result = sp_device->CreateInputLayout(layout, ARRAYSIZE(layout), pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &sp_VertexLayout);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -318,8 +336,7 @@ bool InitScene()
             L"Create input Failed", L"Error", MB_OK);
         return 0;
     }
-    result = D3DCompileFromFile(L"shadersPS.hlsl", NULL, NULL, "PS", "ps_5_0",
-        D3DCOMPILE_ENABLE_STRICTNESS, 0, &pPSBlob, &errorMessage);
+    result = D3DCompileFromFile(L"shadersPS.hlsl", NULL, NULL, "PS", "ps_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pPSBlob, &errorMessage);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -328,8 +345,7 @@ bool InitScene()
         return 0;
     }
 
-    result = sp_device->CreateVertexShader(pVSBlob->GetBufferPointer(),
-        pVSBlob->GetBufferSize(), NULL, &VS);
+    result = sp_device->CreateVertexShader(pVSBlob->GetBufferPointer(),pVSBlob->GetBufferSize(), NULL, &VS);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -337,8 +353,7 @@ bool InitScene()
             L"Create Vertex Shader Failed", L"Error", MB_OK);
         return 0;
     }
-    result = sp_device->CreatePixelShader(pPSBlob->GetBufferPointer(),
-        pPSBlob->GetBufferSize(), NULL, &PS);
+    result = sp_device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &PS);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -346,29 +361,78 @@ bool InitScene()
             L"Create Pixel Shader Failed", L"Error", MB_OK);
         return 0;
     }
-    GeometryGenerator geoGen;
-    
-    //GeometryGenerator::MeshData box1 = geoGen.CreateBox(0.0f, 0.0f, 0.0f, .3f, .3f, .3f);
-  
-    GeometryGenerator::MeshData box1 = geoGen.CreateSphere(0.0f, 0.0f, 0.0f, .2f, 10, 10);
-     UINT16  vsize = box1.Vertices.size();
-    UINT16 isize = box1.Indices.size();
+
+    // skycubehsls
+    result = D3DCompileFromFile(L"skycubeVS.hlsl", NULL, NULL, "VS", "vs_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pVSBlob, &errorMessage);
+    if (FAILED(result))
     {
-        std::vector<Vertex> v;
-        v.resize(vsize);
-        for (int i = 0; i < vsize; i++)
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Compile Vertex Shader Failed", L"Error", MB_OK);
+        return 0;
+    }
+    result = D3DCompileFromFile(L"skycubePS.hlsl", NULL, NULL, "PS", "ps_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pPSBlob, &errorMessage);
+    if (FAILED(result))
+    {
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Compile pixel Shader Failed", L"Error", MB_OK);
+        return 0;
+    }
+    result = sp_device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), NULL, &skyCubeVS);
+    if (FAILED(result))
+    {
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Create Vertex Shader Failed", L"Error", MB_OK);
+        return 0;
+    }
+    result = sp_device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), NULL, &skyCubePS);
+    if (FAILED(result))
+    {
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Create Pixel Shader Failed", L"Error", MB_OK);
+        return 0;
+    }
+
+    GeometryGenerator geoGen;
+    meshs.empty();
+
+    meshs.push_back(geoGen.CreateBox(0.0f, 0.0f, 1.0f, .2f, .2f, .2f));
+    meshs.push_back(geoGen.CreateBox(0.5f, 0.0f, 1.0f, .2f, .2f, .2f));
+    meshs.push_back(geoGen.CreateSphere(0.25f, 0.0f, 1.0f, 0.15f, 15, 15));
+    meshs.push_back(geoGen.CreateSphere(0.0f, 0.0f, 0.0f, 0.5f, 15, 15));
+  //  meshs.emplace_back(geoGen.CreateSphere(0.0f, 0.0f, 0.0f, .2f, 10, 10));
+
+    for (int i = 0; i < meshs.size(); i++)
+    {
+        vsize += meshs[i].Vertices.size();
+        isize += meshs[i].Indices.size();
+    }
+    std::vector<Vertex> v;
+    v.resize(vsize);
+    std::vector<UINT> indices;
+    indices.resize(isize);
+
+    for (int i = 0; i < meshs.size(); i++)
+    {
+
+        for (int j = 0; j < meshs[i].Indices.size(); j++)
         {
-            v[i].pos = box1.Vertices[i].Position;
-            v[i].nor = box1.Vertices[i].Normal;
-            v[i].col = box1.Vertices[i].Color;
-            v[i].uv = box1.Vertices[i].UV;
+            indices[vi] = meshs[i].Indices[j] + vk;
+            vi++;
         }
-        std::vector<UINT> indices;
-        indices.resize(isize);
-        for (int i = 0; i < isize; i++)
+        for (int j = 0; j < meshs[i].Vertices.size(); j++)
         {
-            indices[i] = box1.Indices[i];
+            v[vk].pos = meshs[i].Vertices[j].Position;
+            v[vk].nor = meshs[i].Vertices[j].Normal;
+            v[vk].col = meshs[i].Vertices[j].Color;
+            v[vk].uv = meshs[i].Vertices[j].UV;
+            vk++;
         }
+    }
+    {
         totalIndices = isize;
         D3D11_BUFFER_DESC indexBufferDesc;
         ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
@@ -410,7 +474,7 @@ bool InitScene()
 
     sp_context->VSSetShader(VS, 0, 0);
     sp_context->PSSetShader(PS, 0, 0);
-    D3D11_VIEWPORT viewport;
+  
         ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
@@ -419,7 +483,7 @@ bool InitScene()
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
 
-    sp_context->RSSetViewports(1, &viewport);
+   
     
     D3D11_BUFFER_DESC cbbd;
     ZeroMemory(&cbbd, sizeof(D3D11_BUFFER_DESC));
@@ -466,8 +530,15 @@ bool InitScene()
     result = sp_device->CreateRasterizerState(&wfdesc, &WireFrame);
 
     //sp_context->RSSetState(WireFrame);是否开启线框
-
-    result = CreateWICTextureFromFile(sp_device, L"tex.png", nullptr, m_ATex.GetAddressOf());
+    m_ATex.resize(2);
+    result = CreateWICTextureFromFile(sp_device, L"tex.png", nullptr, m_ATex[0].GetAddressOf());
+    if (FAILED(result))
+    {
+        MessageBox(nullptr,
+            L"Create WIC Failed", L"Error", MB_OK);
+        return 0;
+    }
+    result = CreateWICTextureFromFile(sp_device, L"tex2.png", nullptr, m_ATex[1].GetAddressOf());
     if (FAILED(result))
     {
         MessageBox(nullptr,
@@ -489,24 +560,151 @@ bool InitScene()
 
     sp_device->CreateSamplerState(&sampDesc, sp_SamplerState.GetAddressOf());
 
+
+
+    D3D11_TEXTURE2D_DESC skyTexDesc = {};
+    skyTexDesc.Width = 100;
+    skyTexDesc.Height = 100;
+    skyTexDesc.MipLevels = 1;
+    skyTexDesc.ArraySize = 6;
+    skyTexDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    skyTexDesc.SampleDesc.Count = 1;
+    skyTexDesc.SampleDesc.Quality = 0;
+    skyTexDesc.Usage = D3D11_USAGE_DEFAULT;
+    skyTexDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    skyTexDesc.CPUAccessFlags = 0;
+    skyTexDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+    ComPtr<ID3D11Texture2D> skyTextures;
+    result = sp_device->CreateTexture2D(&skyTexDesc, nullptr, skyTextures.GetAddressOf());
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = skyTexDesc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    result = sp_device->CreateShaderResourceView(skyTextures.Get(), &srvDesc, skyCubeSRV.GetAddressOf());
+    result = CreateWICTextureFromFile(sp_device,L"sun.png",nullptr,skyCubeSRV.GetAddressOf(),0);
+
+    D3D11_RASTERIZER_DESC rasterizerDesc;
+    // 无背面剔除模式
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_NONE;
+    rasterizerDesc.FrontCounterClockwise = false;
+    rasterizerDesc.DepthClipEnable = true;
+    result = sp_device->CreateRasterizerState(&rasterizerDesc, RSNoCull.GetAddressOf());
+
+    D3D11_DEPTH_STENCIL_DESC dsDesc;
+
+    // 允许使用深度值一致的像素进行替换的深度/模板状态
+    // 该状态用于绘制天空盒，因为深度值为1.0时默认无法通过深度测试
+    dsDesc.DepthEnable = true;
+    dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+   dsDesc.StencilEnable = false;
+
+    result = sp_device->CreateDepthStencilState(&dsDesc, DSSLessEqual.GetAddressOf());
+
+    // What we will be doing, is first create a 2d texture. We will then use this texture as a render
+// target AND a shader resource. We cannot render to a shader resource directly, so to do this,
+// we will create a render target and shader resource separately as pointers to this texture. Then
+// when we want to render to the texture, we will render to the render target, which is actually
+// a pointer to the texture, so we will be rendering to the texture. When using the shader resource,
+// we are actually getting the data from the texture that the shader resource points to
+    D3D11_TEXTURE2D_DESC textureDesc;
+    D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc;
+    D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+
+    ///////////////////////// Map's Texture
+    // Initialize the  texture description.
+    ZeroMemory(&textureDesc, sizeof(textureDesc));
+
+    // Setup the texture description.
+    // We will have our map be a square
+    // We will need to have this texture bound as a render target AND a shader resource
+    textureDesc.Width = Width / 2;
+    textureDesc.Height = Height / 2;
+    textureDesc.MipLevels = 1;
+    textureDesc.ArraySize = 1;
+    textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.Usage = D3D11_USAGE_DEFAULT;
+    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    textureDesc.CPUAccessFlags = 0;
+    textureDesc.MiscFlags = 0;
+
+    // Create the texture
+    sp_device->CreateTexture2D(&textureDesc, NULL, &renderTargetTextureMap);
+
+    /////////////////////// Map's Render Target
+    // Setup the description of the render target view.
+    renderTargetViewDesc.Format = textureDesc.Format;
+    renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+    renderTargetViewDesc.Texture2D.MipSlice = 0;
+
+    // Create the render target view.
+    sp_device->CreateRenderTargetView(renderTargetTextureMap, &renderTargetViewDesc, &renderTargetViewMap);
+
+    // Setup the description of the shader resource view.
+    shaderResourceViewDesc.Format = textureDesc.Format;
+    shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+    shaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+    // Create the shader resource view.
+    sp_device->CreateShaderResourceView(renderTargetTextureMap, &shaderResourceViewDesc, &shaderResourceViewMap);
+
+    //////////////////////// Map's camera information
+    // We will have the camera follow the player
+    XMVECTOR mapCamPosition = XMVectorSet(camera.GetPosition().x, camera.GetPosition().y + 1.0f, camera.GetPosition().z,1.0f);
+    XMVECTOR mapCamTarget = XMLoadFloat3(&camera.GetPosition());
+    XMVECTOR mapCamUp = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+
+    //Set the View matrix
+    mapView = XMMatrixLookAtLH(mapCamPosition, mapCamTarget, mapCamUp);
+
+    // Build an orthographic projection matrix
+    mapProjection = XMMatrixOrthographicLH(512, 512, 1.0f, 1000.0f);
+
+    m_OutputViewPort.TopLeftX = 0.0f;
+    m_OutputViewPort.TopLeftY = 0.0f;
+    m_OutputViewPort.Width = static_cast<float>(200);
+    m_OutputViewPort.Height = static_cast<float>(200);
+    m_OutputViewPort.MinDepth = 0.0f;
+    m_OutputViewPort.MaxDepth = 1.0f;
+
     return true;
 }
 void UpdateScene()
 {
+    if (i_input.IsKeyDown(0x1B))
+    {
+        DestroyWindow(hwnd);
+    }
 
-
-    if (i_input.IsKeyDown(0x41))
+    if (i_input.IsKeyDown(0x57))
     {
         XMFLOAT3 pp = camera.GetPosition();
-        camera.SetPosition(pp.x, pp.y, pp.z + 0.01f);
+        camera.SetPosition(pp.x, pp.y, pp.z + 0.001f);
         camera.GetProjMatrix();
     }
-    if (i_input.IsKeyDown(0x44))
+    if (i_input.IsKeyDown(0x53))
     {
         XMFLOAT3 pp = camera.GetPosition();
-        camera.SetPosition(pp.x, pp.y, pp.z - 0.01f);
+        camera.SetPosition(pp.x, pp.y, pp.z - 0.001f);
         camera.GetProjMatrix();
     }
+       // XMFLOAT3 rr = camera.GetRotation();
+      //  camera.SetRotation(rr.x + i_input.MouseDeltaX()*0.00005f,rr.y,rr.z);
+        camera.GetProjMatrix();
+ /*   if (i_input.MouseDeltaX() < 0)
+    {
+        XMFLOAT3 rr = camera.GetRotation();
+        camera.SetRotation(rr.x - 0.001f, rr.y, rr.z);
+        camera.GetProjMatrix();
+    }*/
     
    red = i_input.MouseDeltaX();
    printf("resd = %d,",red);
@@ -516,25 +714,68 @@ void UpdateScene()
 void DrawScene()
 {
     const float bgColor[] = {red, green, blue, 1.0f};
-    sp_context->ClearRenderTargetView(sp_rtv, bgColor);
-    sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,1.0f,0.0f);
+  
+  
 
 
     tcbuffer.MVP = XMMatrixIdentity() * camera.GetViewMatrix() * camera.GetProjMatrix();
     tcbuffer.MVP = XMMatrixTranspose(tcbuffer.MVP);
+    XMVECTOR rotationVec = XMLoadFloat3(&camera.GetRotation());
+    XMFLOAT3 xm = XMFLOAT3(-0.25f, 0.0f, 0.0f);
+   XMVECTOR positionVec = XMLoadFloat3(&xm);
+//    XMVECTOR positionVec = XMLoadFloat3(&camera.GetPosition());
+    XMMATRIX World = XMMatrixTranslationFromVector(positionVec);
+    tcbuffer.gWorld = XMMatrixTranspose(World);
+    tcbuffer.gView = camera.GetViewMatrix();
+    tcbuffer.gProj = camera.GetProjMatrix();
+    tcbuffer.gEyePos = XMFLOAT4(camera.GetPosition().x, camera.GetPosition().y, camera.GetPosition().z,0.0f);
     sp_context->UpdateSubresource(simpleCBuffer, 0, NULL, &tcbuffer, 0, 0);
     sp_context->VSSetConstantBuffers(0, 1, &simpleCBuffer);
     sp_context->PSSetSamplers(0, 1, sp_SamplerState.GetAddressOf());
-    sp_context->PSSetShaderResources(0, 1, m_ATex.GetAddressOf());
+    sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
     cbPerPixel.pl = TempLight.CreatePointLight();
     //cbPerPixel.mul = 2.0f;
     sp_context->UpdateSubresource(cbPixelCBuffer, 0, NULL, &cbPerPixel,0,0);
-    sp_context->PSSetConstantBuffers(0, 1, &cbPixelCBuffer);
 
+
+
+    sp_context->PSSetConstantBuffers(0, 1, &cbPixelCBuffer);
     sp_context->VSSetShader(VS, 0, 0);
     sp_context->PSSetShader(PS, 0, 0);
 
-    sp_context->DrawIndexed(totalIndices, 0, 0);
+  
+    //render to anothor texture
+
+    sp_context->ClearRenderTargetView(renderTargetViewMap, bgColor);
+    sp_context->ClearDepthStencilView(newdepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
+    sp_context->OMSetRenderTargets(1, &renderTargetViewMap, newdepthStencilView);
+    sp_context->RSSetViewports(1, &m_OutputViewPort);
+    sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
+    //why viewport disappeared
+
+
+    sp_context->ClearRenderTargetView(sp_rtv, bgColor);
+   sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
+    sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
+    sp_context->RSSetViewports(1, &viewport);
+    sp_context->PSSetShaderResources(0, 1, &shaderResourceViewMap);
+    sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
+
+
+
+
+
+   // sp_context->PSSetShaderResources(0, 1, m_ATex[1].GetAddressOf());
+    //sp_context->DrawIndexed(36, 36, 0);
+
+  //  sp_context->RSSetState(RSNoCull.Get());
+    sp_context->OMSetDepthStencilState(DSSLessEqual.Get(), 0);
+    sp_context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+    sp_context->VSSetShader(skyCubeVS, 0, 0);
+    sp_context->PSSetShader(skyCubePS, 0, 0);
+    sp_context->PSSetShaderResources(0, 1, skyCubeSRV.GetAddressOf());
+    sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);
+
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -543,8 +784,11 @@ void DrawScene()
     ImGui::ShowDemoWindow(&show_demo_window);
     ImGui::Begin("Another Window", &show_demo_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Hello from another window!");
-
-    ImGui::Text("counter = %f", mousexpos);
+    ImGui::SliderAngle("yaw", &camera.c_rotation.x, -90.0f, 90.0f);
+    ImGui::Text("vsize = %d",vsize);
+    ImGui::Text("isize = %d", isize);
+    ImGui::Text("vk = %d", vk);
+    ImGui::Text("totalIndices = %d", totalIndices);
     ImGui::End();
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

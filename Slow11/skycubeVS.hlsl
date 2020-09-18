@@ -17,10 +17,8 @@ struct VertexIn
 
 struct VertexOut
 {
-	float4 posH : SV_POSITION;
-	float3 color: COLOR;
-	float3 normal : NORMAL;
-	float2 uv   : TEXCOORD;
+	float4 posH : SV_POSITION; 
+	float3 PosL : POSITION;
 };
 
 
@@ -28,8 +26,11 @@ VertexOut VS(VertexIn vIn)
 {
 	VertexOut vOut;
 	vOut.posH = mul(float4(vIn.pos,1.0),MVP);
-	vOut.color = vIn.col;
-	vOut.normal = vIn.nor;
-	vOut.uv = vIn.uv;
+
+	vOut.posH = mul(float4(vIn.pos, 1.0), gWorld);
+	//vOut.posH += gEyePos;
+	vOut.posH = mul(vOut.posH, gView * gProj);
+	vOut.posH = vOut.posH.xyww;
+	vOut.PosL = vIn.pos;
 	return vOut;
 }

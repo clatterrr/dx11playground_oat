@@ -31,9 +31,9 @@ XMFLOAT3 Camera::GetPosition()
 	return c_position;
 }
 
-XMVECTOR Camera::GetRotation()
+XMFLOAT3 Camera::GetRotation()
 {
-	return XMLoadFloat3(&c_rotation);
+	return c_rotation;
 }
 
 XMMATRIX Camera::GetProjMatrix()
@@ -41,12 +41,15 @@ XMMATRIX Camera::GetProjMatrix()
 	XMVECTOR  up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMVECTOR lookAt = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
 	XMVECTOR pos = XMLoadFloat3(&c_position);
-	XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(c_rotation.x, c_rotation.y, c_rotation.z);
+	float pitch = c_rotation.x;
+	float yaw = c_rotation.y;
+	float roll = c_rotation.z;	// 0
+	XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
 	lookAt = XMVector3TransformCoord(lookAt, rotationMatrix);
 	up = XMVector3TransformCoord(up, rotationMatrix);
 	lookAt = pos + lookAt;
 	c_viewMatrix = XMMatrixLookAtLH(pos, lookAt, up);
-	c_projMatrix = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)800 / 600, 0.1f, 1000.0f);
+	c_projMatrix = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)800 / 800, 0.1f, 1000.0f);
 	return c_projMatrix;
 }
 

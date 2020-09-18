@@ -13,10 +13,10 @@ public:
 	void SetPosition(float x, float y, float z);
 	void SetRotation(float x, float y, float z);
 	XMFLOAT3 GetPosition();
-	XMVECTOR GetRotation();
+	XMFLOAT3 GetRotation();
 	XMMATRIX GetProjMatrix();
 	XMMATRIX GetViewMatrix();
-private:
+
 	bool c_ViewDirty = true;
 
 	XMFLOAT3 c_position;

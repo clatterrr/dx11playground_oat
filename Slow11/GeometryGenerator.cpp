@@ -71,24 +71,23 @@ GeometryGenerator::MeshData GeometryGenerator::CreateBox(float px, float py, flo
     return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, float pz, float r, int latitude, int magnitude)
+GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, float pz, float r, int sliceCount, int stackCount)
 {
     MeshData meshData;
     Vertex BotVertex = Vertex(px, py - r, pz, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     Vertex TopVertex = Vertex(px, py + r, pz, 0.0f, -1.0f, 0.0f, 1.0, 0.0f, 0.0f, 0.0f, 0.0f);
-    if (latitude < 5)
-        latitude = 5;
-    if (magnitude < 5)
-        magnitude = 5;
+    if (stackCount < 5)
+        stackCount = 5;
+    if (sliceCount < 5)
+        sliceCount = 5;
 
-    float phiStep = XM_PI / magnitude;//南北极每一块的角度
-    float thetaStep = 2.0f * XM_PI / latitude;//赤道每一块的角度
-    float alength = 2 * r / magnitude;
+    float phiStep = XM_PI / stackCount;//南北极每一块的角度
+    float thetaStep = 2.0f * XM_PI / sliceCount;//赤道每一块的角度
     meshData.Vertices.push_back(TopVertex);
-    for (int i = 1; i < magnitude; i++)
+    for (int i = 1; i < stackCount; i++)
     {
         float phi = i * phiStep;
-        for (int j = 0; j <= latitude; j++)
+        for (int j = 0; j <= sliceCount; j++)
         {
             float theta = j * thetaStep;
             Vertex v;
@@ -104,17 +103,17 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, 
     }
     meshData.Vertices.push_back(BotVertex);
 
-    for (int i = 1; i < latitude; i++)
+    for (int i = 1; i <= sliceCount; i++)
     {
         meshData.Indices.push_back(0);
-        meshData.Indices.push_back(i + 1);
+        meshData.Indices.push_back(i  + 1);
         meshData.Indices.push_back(i);
     }
     UINT baseIndex = 1;
-    UINT ringVertexCount = latitude + 1;
-    for (UINT i = 0; i < magnitude - 2; i++)
+    UINT ringVertexCount = sliceCount + 1;
+    for (UINT i = 0; i < stackCount - 2; i++)
     {
-        for (UINT j = 0; j < latitude; j++)
+        for (UINT j = 0; j < sliceCount; j++)
         {
             meshData.Indices.push_back(baseIndex + i * ringVertexCount + j);
             meshData.Indices.push_back(baseIndex + i * ringVertexCount + j + 1);
@@ -128,7 +127,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, 
     UINT southPoleIndex = (UINT)meshData.Vertices.size() - 1;
     baseIndex = southPoleIndex - ringVertexCount;
 
-    for (UINT i = 0; i < latitude; i++)
+    for (UINT i = 0; i < sliceCount; i++)
     {
         meshData.Indices.push_back(southPoleIndex);
         meshData.Indices.push_back(baseIndex + i);
