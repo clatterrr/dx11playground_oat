@@ -13,6 +13,8 @@
 #include "GeometryGenerator.h"
 #include "Input.h"
 #include "Light.h"
+#include "Terrain.h"
+
 //extern library
 #include "WICTextureLoader.h"
 #include "imgui.h"

@@ -15,6 +15,7 @@ ID3D11PixelShader* PS;
 ID3D11DepthStencilView* depthStencilView;
 ID3D11Texture2D* depthStencilBuffer;
 ComPtr<ID3D11InputLayout> sp_VertexLayout;
+ComPtr<ID3D11InputLayout> sp_VertexLayout2;
 
 // 安全COM组件释放宏
 #define SAFE_RELEASE(p) { if ((p)) { (p)->Release(); (p) = nullptr; } }
@@ -82,6 +83,9 @@ XMMATRIX mapProjection;
 D3D11_VIEWPORT                                 viewport;
 D3D11_VIEWPORT						m_OutputViewPort = {};	// 输出所用的视口
 
+//13 - Miracle Terrain
+Terrain terrain;
+
 UINT vsize = 0, isize = 0, vk = 0, vi = 0;
 
 bool InitWinWindow(HINSTANCE hInstance, int nCmdShow);
@@ -109,8 +113,12 @@ const D3D11_INPUT_ELEMENT_DESC layout[] =
    { "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     {"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,36,D3D11_INPUT_PER_VERTEX_DATA,0}
 };
+const D3D11_INPUT_ELEMENT_DESC layout2[] =
+{
+   { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+};
 UINT numElements = ARRAYSIZE(layout);
-
+UINT numElements2 = ARRAYSIZE(layout2);
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
@@ -328,7 +336,7 @@ bool InitScene()
             L"Compile Vertex Shader Failed", L"Error", MB_OK);
         return 0;
     }
-    result = sp_device->CreateInputLayout(layout, ARRAYSIZE(layout), pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &sp_VertexLayout);
+   // result = sp_device->CreateInputLayout(layout2, ARRAYSIZE(layout2), pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &sp_VertexLayout2);
     if (FAILED(result))
     {
         pVSBlob->Release();
@@ -336,6 +344,23 @@ bool InitScene()
             L"Create input Failed", L"Error", MB_OK);
         return 0;
     }
+    result = D3DCompileFromFile(L"shadersVS.hlsl", NULL, NULL, "VS", "vs_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pVSBlob, &errorMessage);
+    if (FAILED(result))
+    {
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Compile Vertex Shader Failed", L"Error", MB_OK);
+        return 0;
+    }
+    result = sp_device->CreateInputLayout(layout, ARRAYSIZE(layout), pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &sp_VertexLayout);
+    if (FAILED(result))
+    {
+        pVSBlob->Release();
+        MessageBox(nullptr,
+            L"Create input F21ailed", L"Error", MB_OK);
+        return 0;
+    }
+ 
     result = D3DCompileFromFile(L"shadersPS.hlsl", NULL, NULL, "PS", "ps_5_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pPSBlob, &errorMessage);
     if (FAILED(result))
     {
@@ -401,9 +426,8 @@ bool InitScene()
 
     meshs.push_back(geoGen.CreateBox(0.0f, 0.0f, 1.0f, .2f, .2f, .2f));
     meshs.push_back(geoGen.CreateBox(0.5f, 0.0f, 1.0f, .2f, .2f, .2f));
-    meshs.push_back(geoGen.CreateSphere(0.25f, 0.0f, 1.0f, 0.15f, 15, 15));
-    meshs.push_back(geoGen.CreateSphere(0.0f, 0.0f, 0.0f, 0.5f, 15, 15));
-  //  meshs.emplace_back(geoGen.CreateSphere(0.0f, 0.0f, 0.0f, .2f, 10, 10));
+ //   meshs.push_back(geoGen.CreateSqure(0.0f, -0.1, 0.0f, 0.4f));
+    meshs.push_back(geoGen.CreateBox(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
 
     for (int i = 0; i < meshs.size(); i++)
     {
@@ -469,7 +493,7 @@ bool InitScene()
 
 
     sp_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
+    //sp_context->IASetInputLayout(sp_VertexLayout2.Get());
     sp_context->IASetInputLayout(sp_VertexLayout.Get());
 
     sp_context->VSSetShader(VS, 0, 0);
@@ -519,8 +543,8 @@ bool InitScene()
         return 0;
     }
 
-    camera.SetPosition(0.1f, 0.2f, -.5f);
-    camera.SetRotation(0.2f, 0.3f, 0.0f);
+    camera.SetPosition(0.0f, 1.2f, 0.0f);
+    camera.SetRotation(-0.01f, 0.0f, 0.0f);
     camera.GetProjMatrix();
 
     D3D11_RASTERIZER_DESC wfdesc;
@@ -696,15 +720,18 @@ void UpdateScene()
         camera.SetPosition(pp.x, pp.y, pp.z - 0.001f);
         camera.GetProjMatrix();
     }
-       // XMFLOAT3 rr = camera.GetRotation();
-      //  camera.SetRotation(rr.x + i_input.MouseDeltaX()*0.00005f,rr.y,rr.z);
-        camera.GetProjMatrix();
- /*   if (i_input.MouseDeltaX() < 0)
+    if (i_input.IsKeyDown(0x41))
     {
-        XMFLOAT3 rr = camera.GetRotation();
-        camera.SetRotation(rr.x - 0.001f, rr.y, rr.z);
+        XMFLOAT3 pp = camera.GetPosition();
+        camera.SetPosition(pp.x - 0.001f, pp.y, pp.z);
         camera.GetProjMatrix();
-    }*/
+    }
+    if (i_input.IsKeyDown(0x44))
+    {
+        XMFLOAT3 pp = camera.GetPosition();
+       camera.SetPosition(pp.x + 0.001f, pp.y, pp.z );
+        camera.GetProjMatrix();
+    }
     
    red = i_input.MouseDeltaX();
    printf("resd = %d,",red);
@@ -745,24 +772,24 @@ void DrawScene()
 
   
     //render to anothor texture
-
+    /*
     sp_context->ClearRenderTargetView(renderTargetViewMap, bgColor);
     sp_context->ClearDepthStencilView(newdepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
     sp_context->OMSetRenderTargets(1, &renderTargetViewMap, newdepthStencilView);
     sp_context->RSSetViewports(1, &m_OutputViewPort);
     sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
-    //why viewport disappeared
+    //why viewport disappeared*/
 
 
     sp_context->ClearRenderTargetView(sp_rtv, bgColor);
    sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
     sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
     sp_context->RSSetViewports(1, &viewport);
-    sp_context->PSSetShaderResources(0, 1, &shaderResourceViewMap);
+    sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
     sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
 
 
-
+   
 
 
    // sp_context->PSSetShaderResources(0, 1, m_ATex[1].GetAddressOf());
@@ -774,8 +801,10 @@ void DrawScene()
     sp_context->VSSetShader(skyCubeVS, 0, 0);
     sp_context->PSSetShader(skyCubePS, 0, 0);
     sp_context->PSSetShaderResources(0, 1, skyCubeSRV.GetAddressOf());
-    sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);
+   sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);
 
+ 
+    terrain.DrawTerrain(sp_device, sp_context, camera.GetPosition());
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -785,13 +814,16 @@ void DrawScene()
     ImGui::Begin("Another Window", &show_demo_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Hello from another window!");
     ImGui::SliderAngle("yaw", &camera.c_rotation.x, -90.0f, 90.0f);
-    ImGui::Text("vsize = %d",vsize);
-    ImGui::Text("isize = %d", isize);
-    ImGui::Text("vk = %d", vk);
-    ImGui::Text("totalIndices = %d", totalIndices);
+    ImGui::Text("camx = %f", camera.GetPosition().x);
+    ImGui::Text("camy = %f", camera.GetPosition().y);
+    ImGui::Text("camz = %f", camera.GetPosition().z);
+    ImGui::Text("x = %f",terrain.TileCenterX);
+    ImGui::Text("y = %f", terrain.TileCenterY);
     ImGui::End();
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+
 
     sp_swapchain->Present(0, 0);
 }

@@ -1,5 +1,15 @@
 #include "GeometryGenerator.h"
 
+
+GeometryGenerator::GeometryGenerator()
+{
+   
+}
+
+GeometryGenerator::~GeometryGenerator()
+{
+}
+
 GeometryGenerator::MeshData GeometryGenerator::CreateBox(float px, float py, float pz, float width, float height, float depth)
 {
     MeshData meshData;
@@ -73,6 +83,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateBox(float px, float py, flo
 
 GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, float pz, float r, int sliceCount, int stackCount)
 {
+
     MeshData meshData;
     Vertex BotVertex = Vertex(px, py - r, pz, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     Vertex TopVertex = Vertex(px, py + r, pz, 0.0f, -1.0f, 0.0f, 1.0, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -136,6 +147,106 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float px, float py, 
 
 
     return meshData;
+}
+
+GeometryGenerator::MeshData GeometryGenerator::CreateSqure(float px, float py, float pz, float length)
+{
+    MeshData meshData;
+
+    std::vector<Vertex> v;
+
+    v.resize(4);
+    float halfLen = length / 2;
+    v[0] = Vertex(px - halfLen, py , pz - halfLen, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    v[1] = Vertex(px - halfLen, py , pz + halfLen, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+    v[2] = Vertex(px + halfLen, py, pz + halfLen, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f);
+    v[3] = Vertex(px + halfLen, py , pz - halfLen, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+
+    meshData.Vertices = v;
+
+    int i[6];
+
+    i[0] = 0; i[1] = 1; i[2] = 2;
+    i[3] = 0; i[4] = 2; i[5] = 3;
+
+    meshData.Indices.assign(&i[0], &i[6]);
+
+
+    return meshData;
+}
+
+GeometryGenerator::MeshData GeometryGenerator::CreateTerrain(float TilePosX,float TilePosZ,float TileSize,float minSize)
+{
+    MeshData meshData;
+    UINT Steps = 4.0f / 1.0f;
+
+    TilePosX -= TileSize / 2;
+    TilePosZ -= TileSize / 2;
+    //res = 0.5 hight res
+    std::vector<Vertex> v;
+    v.resize(Steps * Steps  * 4);
+    for ( int i = 0; i < Steps; i++)
+    {
+        for (int j = 0; j < Steps; j++)
+        {
+            float x0 = TilePosX + i * minSize;
+            float x1 = TilePosX + (i + 1) * minSize;
+            float y0 = TilePosZ + j * minSize + 1.0f;
+            float y1 = TilePosZ + (j + 1) * minSize + 1.0f;
+            UINT baseidx = (i * Steps + j) * 4;
+           v[baseidx + 0] = Vertex(x0, Perlin_GetHeight(x0, y0) * 0.2f, y0 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,0.0f , 0.0f);
+           v[baseidx + 1] = Vertex(x0, Perlin_GetHeight(x0, y1) * 0.2f, y1 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,1.0f);
+           v[baseidx + 2] = Vertex(x1, Perlin_GetHeight(x1, y0) * 0.2f, y0 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+           v[baseidx + 3] = Vertex(x1, Perlin_GetHeight(x1, y1) * 0.2f, y1 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+        }
+    }
+  //  v[0] = Vertex(TilePosX , 0.0f, TilePosZ ,                                0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+  //  v[1] = Vertex(TilePosX , 0.0f, TilePosZ +  minSize,                0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+  //  v[2] = Vertex(TilePosX +  minSize, 0.0f, TilePosZ,                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+  //  v[3] = Vertex(TilePosX +  minSize, 0.0f, TilePosZ +  minSize, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    meshData.Vertices = v;
+    std::vector<UINT> ind;
+    ind.resize(Steps * Steps * 6);
+    for (int ii = 0; ii < Steps; ii++)
+    {
+        for (int j = 0; j < Steps; j++)
+        {
+           // 0 1 2
+            // 0 2 3
+            
+            UINT baseidx = (ii * Steps + j) * 6;
+            UINT veridx = (ii * Steps + j) * 4;
+            ind[baseidx] = veridx;
+            ind[baseidx + 1] =  veridx + 1;
+            ind[baseidx + 2] = veridx + 3;
+
+            ind[baseidx + 3] = veridx;
+            ind[baseidx + 4] = veridx + 3;
+            ind[baseidx + 5] = veridx + 2;
+          
+        }
+    }
+    meshData.Indices = ind;
+    return meshData;
+}
+
+float GeometryGenerator::Perlin_GetHeight(int x, int y)
+{
+    return sinf(x) + y;
+    XMFLOAT2 bottomleft = Perlin_FakeVector(x - 0.5, y - 0.5);
+    XMFLOAT2 bottomright = Perlin_FakeVector(x + 0.5, y - 0.5);
+    XMFLOAT2 topleft = Perlin_FakeVector(x - 0.5, y + 0.5);
+    XMFLOAT2 topright = Perlin_FakeVector(x + 0.5, y + 0.5);
+    return  bottomleft.x + bottomleft.y + bottomright.x + bottomright.y + topleft.x + topleft.y + topright.x + topright.y;
+}
+
+XMFLOAT2 GeometryGenerator::Perlin_FakeVector(float x, float y)
+{
+    float fakeX = sinf(x * 1785 + y * 8051) + cosf(3021 * x + 3245 * y);
+    float fakeY = sinf(x * 5685 + y * 8211) + cosf(3121 * x + 4145 * y);
+    float base = sqrt(fakeX * fakeX + fakeY * fakeY);
+    return XMFLOAT2(fakeX, fakeY);
 }
 
 GeometryGenerator::Vertex::Vertex()

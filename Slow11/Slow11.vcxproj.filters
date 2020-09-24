@@ -54,6 +54,12 @@
     <ClCompile Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.cpp">
       <Filter>Resource Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Perlin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shadersPS.hlsl">
@@ -66,6 +72,9 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="skycubeVS.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="VertexShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
@@ -111,6 +120,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.h">
       <Filter>Resource Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Perlin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
