@@ -175,36 +175,108 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSqure(float px, float py, f
     return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateTerrain(float TilePosX,float TilePosZ,float TileSize,float minSize)
+GeometryGenerator::MeshData GeometryGenerator::CreateATerrain(float TilePosX,float TilePosZ,float TileSize,float minSize,int edgecut)
 {
     MeshData meshData;
-    UINT Steps = 4.0f / 1.0f;
-
+    UINT Steps = TileSize / minSize;
     TilePosX -= TileSize / 2;
     TilePosZ -= TileSize / 2;
     //res = 0.5 hight res
     std::vector<Vertex> v;
-    v.resize(Steps * Steps  * 4);
+    v.resize(Steps * Steps  * 6);
+    std::vector<XMFLOAT3> FaceNormal;
+    FaceNormal.resize(Steps * Steps * 2);
     for ( int i = 0; i < Steps; i++)
     {
         for (int j = 0; j < Steps; j++)
         {
+
             float x0 = TilePosX + i * minSize;
-            float x1 = TilePosX + (i + 1) * minSize;
-            float y0 = TilePosZ + j * minSize + 1.0f;
-            float y1 = TilePosZ + (j + 1) * minSize + 1.0f;
-            UINT baseidx = (i * Steps + j) * 4;
-           v[baseidx + 0] = Vertex(x0, Perlin_GetHeight(x0, y0) * 0.2f, y0 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,0.0f , 0.0f);
-           v[baseidx + 1] = Vertex(x0, Perlin_GetHeight(x0, y1) * 0.2f, y1 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,1.0f);
-           v[baseidx + 2] = Vertex(x1, Perlin_GetHeight(x1, y0) * 0.2f, y0 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-           v[baseidx + 3] = Vertex(x1, Perlin_GetHeight(x1, y1) * 0.2f, y1 , 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+            float x1 = TilePosX + i * minSize + minSize;
+            float y0 = TilePosZ + j * minSize + 2.0f;
+            float y1 = TilePosZ + j * minSize + minSize + 2.0f;
+            float h0 = Perlin_GetHeight(x0, y0);
+            float h1 = Perlin_GetHeight(x0, y1);
+            float h2 = Perlin_GetHeight(x1, y0);
+            float h3 = Perlin_GetHeight(x1, y1);
+            /*
+            y1 1----------3
+                 |              |
+                 |              |
+            y0 0----------2
+                x0           x1
+            */
+            int baseidx = (i * Steps + j) * 6;
+            if ((edgecut & 1) && j == Steps - 1)//上边的lod更加粗糙
+            {
+                if (i % 2 == 0)
+                {
+                    //处理 p3
+                    h3 = (h1 + Perlin_GetHeight(x1 + minSize,y1)) / 2;
+                }
+                else
+                {
+                    h1 = (h3 + Perlin_GetHeight(x0 - minSize, y1)) / 2;
+                }
+            }
+            if ((edgecut & 2) && j == 0)//下边的lod更加粗糙
+            {
+                if (i % 2 == 0)
+                {
+                    h2 = (h0 + Perlin_GetHeight(x1 + minSize, y0)) / 2;
+                }
+                else
+                {
+                    h0 = (h2 + Perlin_GetHeight(x0 - minSize, y0)) / 2;
+                }
+            }
+            if ((edgecut & 4)&& (i == 0))//左边的lod更加粗糙
+            {
+                if (j % 2 == 0)
+                {
+                    h1 = (h0 + Perlin_GetHeight(x0, y1 + minSize)) / 2;
+                }
+                else
+                {
+                    h0 = (h1 + Perlin_GetHeight(x0 , y0 - minSize)) / 2;
+                }
+            }
+            if ((edgecut & 8)&& (i == Steps - 1))//右边的lod更加粗糙
+            {
+                if (j % 2 == 0)
+                {
+                    h3 = (h2 + Perlin_GetHeight(x1, y1 + minSize)) / 2;
+                }
+                else
+                {
+                    h2 = (h3 + Perlin_GetHeight(x1, y0 - minSize)) / 2;
+                }
+            }
+            //cross product
+            float a0, a1, a2, b0, b1, b2, n0, n1, n2, n3, n4, n5;
+            a0 = x0 - x0, a1 = h1 - h0, a2 = y1 - y0;//0 -- 1
+            b0 = x1 - x0, b1 = h3 - h0, b2 = y1 - y0;//0 -- 3
+            n0 = a1 * b2 - a2 * b1;
+            n1 = a2 * b0 - a0 * b2;
+            n2 = a0 * b1 - a1 * b0;
+            FaceNormal.push_back(XMFLOAT3(n0, n1, n2));
+            a0 = x1 - x0, a1 = h3 - h0, a2 = y1 - y0;//0 -- 3 这两个别弄混了，否则法线就反过去了
+            b0 = x1 - x0, b1 = h2 - h0, b2 = y0 - y0;//0 -- 2
+            n3 = a1 * b2 - a2 * b1;
+            n4 = a2 * b0 - a0 * b2;
+            n5 = a0 * b1 - a1 * b0;
+            FaceNormal.push_back(XMFLOAT3(n3, n4, n5));
+            v[baseidx + 0]  = Vertex(x0,h0,y0, n0, n1, n2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+            v[baseidx + 1] = Vertex(x0,h1, y1, n0, n1, n2,0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+            v[baseidx + 2] = Vertex(x1, h3, y1, n0, n1, n2, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+
+            v[baseidx + 3] = Vertex(x0, h0, y0, n3, n4, n5, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+            v[baseidx + 4] = Vertex(x1, h3, y1, n3, n4, n5, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+            v[baseidx + 5] = Vertex(x1, h2, y0, n3, n4, n5, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
+
         }
     }
-  //  v[0] = Vertex(TilePosX , 0.0f, TilePosZ ,                                0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-  //  v[1] = Vertex(TilePosX , 0.0f, TilePosZ +  minSize,                0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-  //  v[2] = Vertex(TilePosX +  minSize, 0.0f, TilePosZ,                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-  //  v[3] = Vertex(TilePosX +  minSize, 0.0f, TilePosZ +  minSize, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-
     meshData.Vertices = v;
     std::vector<UINT> ind;
     ind.resize(Steps * Steps * 6);
@@ -216,14 +288,14 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTerrain(float TilePosX,floa
             // 0 2 3
             
             UINT baseidx = (ii * Steps + j) * 6;
-            UINT veridx = (ii * Steps + j) * 4;
+            UINT veridx = (ii * Steps + j) * 6;
             ind[baseidx] = veridx;
             ind[baseidx + 1] =  veridx + 1;
-            ind[baseidx + 2] = veridx + 3;
+            ind[baseidx + 2] = veridx + 2;
 
-            ind[baseidx + 3] = veridx;
-            ind[baseidx + 4] = veridx + 3;
-            ind[baseidx + 5] = veridx + 2;
+            ind[baseidx + 3] = veridx  + 3;
+            ind[baseidx + 4] = veridx + 4;
+            ind[baseidx + 5] = veridx + 5;
           
         }
     }
@@ -231,18 +303,27 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTerrain(float TilePosX,floa
     return meshData;
 }
 
-float GeometryGenerator::Perlin_GetHeight(int x, int y)
+GeometryGenerator::MeshData GeometryGenerator::CreateTerrainLOD()
 {
-    return sinf(x) + y;
+    return MeshData();
+}
+
+float GeometryGenerator::Perlin_GetHeight(float x, float y)
+{
+  // return (sinf(x * 4.0f) + 1) * 0.1f;
+  //  return x * 0.2f;
     XMFLOAT2 bottomleft = Perlin_FakeVector(x - 0.5, y - 0.5);
     XMFLOAT2 bottomright = Perlin_FakeVector(x + 0.5, y - 0.5);
     XMFLOAT2 topleft = Perlin_FakeVector(x - 0.5, y + 0.5);
     XMFLOAT2 topright = Perlin_FakeVector(x + 0.5, y + 0.5);
-    return  bottomleft.x + bottomleft.y + bottomright.x + bottomright.y + topleft.x + topleft.y + topright.x + topright.y;
+    float result = bottomleft.x + bottomleft.y + bottomright.x + bottomright.y + topleft.x + topleft.y + topright.x + topright.y;
+    return result * 0.2f;
 }
+    
 
 XMFLOAT2 GeometryGenerator::Perlin_FakeVector(float x, float y)
 {
+
     float fakeX = sinf(x * 1785 + y * 8051) + cosf(3021 * x + 3245 * y);
     float fakeY = sinf(x * 5685 + y * 8211) + cosf(3121 * x + 4145 * y);
     float base = sqrt(fakeX * fakeX + fakeY * fakeY);

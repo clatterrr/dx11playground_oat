@@ -36,6 +36,10 @@ using namespace Microsoft::WRL;
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 800
 
+
+
+
+
 struct Vertex
 {
     Vertex() {}

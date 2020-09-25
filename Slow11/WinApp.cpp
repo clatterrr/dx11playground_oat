@@ -42,6 +42,7 @@ struct TransformCBuffer
     XMMATRIX gWorld;
     XMMATRIX gView;
     XMMATRIX gProj;
+    XMMATRIX normalMat;
     XMFLOAT4 gEyePos;
 } tcbuffer;
 
@@ -553,9 +554,9 @@ bool InitScene()
     wfdesc.CullMode = D3D11_CULL_NONE;
     result = sp_device->CreateRasterizerState(&wfdesc, &WireFrame);
 
-    //sp_context->RSSetState(WireFrame);是否开启线框
+    //sp_context->RSSetState(WireFrame);//是否开启线框
     m_ATex.resize(2);
-    result = CreateWICTextureFromFile(sp_device, L"tex.png", nullptr, m_ATex[0].GetAddressOf());
+    result = CreateWICTextureFromFile(sp_device, L"grassland.png", nullptr, m_ATex[0].GetAddressOf());
     if (FAILED(result))
     {
         MessageBox(nullptr,
@@ -754,15 +755,17 @@ void DrawScene()
     XMMATRIX World = XMMatrixTranslationFromVector(positionVec);
     tcbuffer.gWorld = XMMatrixTranspose(World);
     tcbuffer.gView = camera.GetViewMatrix();
+    XMMATRIX modelview = XMMatrixTranspose(World) * camera.GetViewMatrix();
     tcbuffer.gProj = camera.GetProjMatrix();
+    XMMATRIX norMat = XMMatrixTranspose(XMMatrixInverse(nullptr,modelview));
     tcbuffer.gEyePos = XMFLOAT4(camera.GetPosition().x, camera.GetPosition().y, camera.GetPosition().z,0.0f);
     sp_context->UpdateSubresource(simpleCBuffer, 0, NULL, &tcbuffer, 0, 0);
     sp_context->VSSetConstantBuffers(0, 1, &simpleCBuffer);
     sp_context->PSSetSamplers(0, 1, sp_SamplerState.GetAddressOf());
     sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
-    cbPerPixel.pl = TempLight.CreatePointLight();
-    //cbPerPixel.mul = 2.0f;
-    sp_context->UpdateSubresource(cbPixelCBuffer, 0, NULL, &cbPerPixel,0,0);
+
+    Light::PointLight alight   = TempLight.CreatePointLight();
+
 
 
 
@@ -785,8 +788,8 @@ void DrawScene()
    sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
     sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
     sp_context->RSSetViewports(1, &viewport);
-    sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
-    sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
+   
+   /* sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
 
 
    
@@ -801,10 +804,15 @@ void DrawScene()
     sp_context->VSSetShader(skyCubeVS, 0, 0);
     sp_context->PSSetShader(skyCubePS, 0, 0);
     sp_context->PSSetShaderResources(0, 1, skyCubeSRV.GetAddressOf());
-   sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);
+   sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);*/
 
  
     terrain.DrawTerrain(sp_device, sp_context, camera.GetPosition());
+    sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
+    terrain.lod0isize = 96;// why this become 0?
+    sp_context->DrawIndexed(terrain.lod0isize, 0, 0);
+    sp_context->PSSetShaderResources(0, 1, m_ATex[1].GetAddressOf());
+    sp_context->DrawIndexed(terrain.lod1isize - terrain.lod0isize, terrain.lod0isize, 0);
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -814,16 +822,21 @@ void DrawScene()
     ImGui::Begin("Another Window", &show_demo_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     ImGui::Text("Hello from another window!");
     ImGui::SliderAngle("yaw", &camera.c_rotation.x, -90.0f, 90.0f);
+    ImGui::SliderAngle("pitch", &camera.c_rotation.y, -90.0f, 90.0f);
+    ImGui::SliderAngle("roll", &camera.c_rotation.z, -90.0f, 90.0f);
+    ImGui::SliderFloat("lightpos", &alight.position.x, -5.0f, 5.0f);
     ImGui::Text("camx = %f", camera.GetPosition().x);
     ImGui::Text("camy = %f", camera.GetPosition().y);
     ImGui::Text("camz = %f", camera.GetPosition().z);
-    ImGui::Text("x = %f",terrain.TileCenterX);
-    ImGui::Text("y = %f", terrain.TileCenterY);
+  //  ImGui::Text("x = %f",terrain.TileCenterX);
+ //   ImGui::Text("y = %f", terrain.TileCenterY);
     ImGui::End();
     ImGui::Render();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-
+    cbPerPixel.pl = alight;
+    //cbPerPixel.mul = 2.0f;
+    sp_context->UpdateSubresource(cbPixelCBuffer, 0, NULL, &cbPerPixel, 0, 0);
 
     sp_swapchain->Present(0, 0);
 }

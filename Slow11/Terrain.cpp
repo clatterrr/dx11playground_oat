@@ -8,7 +8,7 @@ Terrain::~Terrain()
 {
 }
 
-void Terrain::DrawTerrain(ID3D11Device* t_device,ID3D11DeviceContext* t_context,XMFLOAT3 camPos)
+void Terrain::DrawTerrain(ID3D11Device* t_device, ID3D11DeviceContext* t_context, XMFLOAT3 camPos)
 {
     ID3D11Buffer* triangleVertBuffer;
     ID3D11Buffer* IndexBuffer;
@@ -16,15 +16,22 @@ void Terrain::DrawTerrain(ID3D11Device* t_device,ID3D11DeviceContext* t_context,
     meshs.empty();
     float camx = camPos.x;
     float camz = camPos.z;
-    int CenterTileX = (int)(camx * 50) / 80 ;
-    int CenterTileZ = (int)(camz * 50) / 80 + 1;
+   // camx = camz = 0.0f;
     float tileSize = 4.0f;
 
     GeometryGenerator geoGen;
- //   meshs.push_back(geoGen.CreateSqure(CenterTileX * 1.6f, -0.3f, CenterTileZ * 1.6f, tileSize));
-    TileCenterX = (int)camx;
-    TileCenterY =  (int)camz;
-    meshs.push_back(geoGen.CreateTerrain(TileCenterX, TileCenterY,tileSize,1.0f));
+    float TileCenterX = (int)camx;
+    float TileCenterY =  (int)camz;
+    float lod0size = 1.0f / 1.0f;
+    int edgecut = 15;
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX, TileCenterY,tileSize,lod0size, edgecut));
+    edgecut = 0;
+    float lod1size = lod0size * 2;
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX - tileSize, TileCenterY + tileSize, tileSize, lod1size,edgecut));//up left
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX,               TileCenterY + tileSize, tileSize, lod1size, edgecut));//up medium
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX + tileSize, TileCenterY + tileSize, tileSize, lod1size, edgecut));//up right
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX - tileSize, TileCenterY, tileSize, lod1size, edgecut));//left
+    meshs.push_back(geoGen.CreateATerrain(TileCenterX + tileSize, TileCenterY, tileSize, lod1size, edgecut));//right
     UINT vsize = 0, isize = 0, vi = 0, vk = 0;
    
 
@@ -90,8 +97,10 @@ void Terrain::DrawTerrain(ID3D11Device* t_device,ID3D11DeviceContext* t_context,
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
     t_context->IASetVertexBuffers(0, 1, &triangleVertBuffer, &stride, &offset);
-    t_context->DrawIndexed(isize, 0, 0);
-
+  //  t_context->DrawIndexed(meshs[0].Indices.size(), 0, 0);
+  //  t_context->DrawIndexed(isize - meshs[0].Indices.size(), meshs[0].Indices.size(), 0);
+    lod0size = meshs[0].Indices.size();
+    lod1isize = isize;
     triangleVertBuffer->Release();//otherwise create buffer every frame take your program into freeze
     IndexBuffer->Release();
 }

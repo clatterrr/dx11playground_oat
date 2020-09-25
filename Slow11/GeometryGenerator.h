@@ -42,9 +42,11 @@ public:
 
 	MeshData CreateSqure(float px, float py, float pz, float length);
 
-	MeshData CreateTerrain(float TilePosX, float TilePosZ, float TileSize, float minSize);
+	MeshData CreateATerrain(float TilePosX, float TilePosZ, float TileSize, float minSize, int edgecut);
 
-	float Perlin_GetHeight(int x, int y);
+	MeshData CreateTerrainLOD();
+
+	float Perlin_GetHeight(float x, float y);
 	XMFLOAT2 Perlin_FakeVector(float x, float y);
 private:
 

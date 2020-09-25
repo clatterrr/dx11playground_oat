@@ -1,6 +1,7 @@
 struct VertexOut
 {
 	float4 posH : SV_POSITION;
+    float4 posM :POSITION;
 	float3 color: COLOR;
 	float3 normal : NORMAL;
 	float2 uv   : TEXCOORD;
@@ -22,56 +23,18 @@ cbuffer ConstantBufferPerPixel
 {
 	Light light;
 };
-/*
-void ComputeDirectionalLight(Light L,
-    float3 normal, float3 toEye,
-    out float4 ambient,
-    out float4 diffuse,
-    out float4 spec)
-{
-    // 初始化输出
-    ambient = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    diffuse = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    spec = float4(0.0f, 0.0f, 0.0f, 0.0f);
-
-    // 光向量与照射方向相反
-    float3 lightVec = -L.Direction;
-
-    // 添加环境光
-    ambient = 1.0f * L.Ambient;
-
-    // 添加漫反射光和镜面光
-    float diffuseFactor = dot(lightVec, normal);
-
-    // 展开，避免动态分支
-    [flatten]
-    if (diffuseFactor > 0.0f)
-    {
-        float3 v = reflect(-lightVec, normal);
-        float specFactor = pow(max(dot(v, toEye), 0.0f), 0.8f);
-
-        diffuse = diffuseFactor * 0.8f * L.Diffuse;
-        spec = specFactor * 0.8f * L.Specular;
-    }
-}
-*/
 float4 PS(VertexOut pIn) : SV_Target
 {
-	float3 normal = normalize(pIn.normal);
-
-    float4 lightDirection = normalize(light.Position - pIn.posH);
-
-    float nDotL = max(dot(lightDirection.xyz, normal), 0.0);
-
-
+     float3 lightamb = float3(1.0f,1.0f,1.0f) ;
+     float3 lightpos = float3(-5.0f, 5.0f, 0.0f);
+   float3 lightdiff = float3(1.0f, .5f, 1.0f)*1.0f;
     float3 texColor = g_Tex.Sample(g_sam, pIn.uv);
-
-
-    float3 diff = light.Diffuse.xyz * texColor * nDotL;
-
-    float3 ambient = light.Ambient.xyz * texColor;
-    return  float4(diff + ambient, 1.0f);
-	//return float4(1.0f,1.0f,0.0f,1.0f);
-    //return pIn.color;
+    float3 ambient = lightamb * texColor;
+    float3 lightDirection = normalize(lightpos - pIn.posM.xyz);
+    float3 normal = normalize(pIn.normal);
+  //  float nDotL = max(dot(lightDirection, normal), 0.0);
+    float nDotL = dot(lightDirection, normal);
+    float3 diffuse = texColor * lightdiff * nDotL;
+    return float4((diffuse + ambient)*1.5f,0.0f);
 }
 

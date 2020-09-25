@@ -15,9 +15,8 @@ public:
 	void DrawTerrain(ID3D11Device* t_device, ID3D11DeviceContext* t_context, XMFLOAT3 camPos);
 	void ComputeTerrain(ID3D11Device* t_device, ID3D11DeviceContext* t_context,XMFLOAT3 camPos);
 
-	float TileCenterX;
-	float TileCenterY;
-
+	float lod0isize = 0;
+	float lod1isize = 0;
 };
 
 

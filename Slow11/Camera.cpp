@@ -4,6 +4,7 @@ Camera::Camera()
 {
 	c_position = XMFLOAT3(0, 0, 0);
 	c_rotation = XMFLOAT3(0, 0, 0);
+	c_forward = XMFLOAT3(0, 0, 1);
 }
 
 Camera::~Camera()
@@ -39,7 +40,7 @@ XMFLOAT3 Camera::GetRotation()
 XMMATRIX Camera::GetProjMatrix()
 {
 	XMVECTOR  up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMVECTOR lookAt = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	XMVECTOR lookAt = XMLoadFloat3(&c_forward);
 	XMVECTOR pos = XMLoadFloat3(&c_position);
 	float pitch = c_rotation.x;
 	float yaw = c_rotation.y;

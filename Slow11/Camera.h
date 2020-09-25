@@ -21,6 +21,7 @@ public:
 
 	XMFLOAT3 c_position;
 	XMFLOAT3 c_rotation;
+	XMFLOAT3 c_forward;
 	XMMATRIX c_viewMatrix;
 	XMMATRIX c_projMatrix;
 	XMFLOAT4X4 c_orthMatrix;
