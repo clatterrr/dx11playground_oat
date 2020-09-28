@@ -144,6 +144,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\Helper\DirectXTK-master\Src\ScreenGrab.cpp" />
     <ClCompile Include="..\..\..\Helper\DirectXTK-master\Src\WICTextureLoader.cpp" />
     <ClCompile Include="..\..\..\Helper\imgui-master\examples\imgui_impl_dx11.cpp" />
     <ClCompile Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.cpp" />
@@ -156,6 +157,7 @@
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Perlin.cpp" />
+    <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="WinApp.cpp" />
   </ItemGroup>
@@ -186,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\Helper\DirectXTK-master\Inc\WICTextureLoader.h" />
+    <ClInclude Include="..\..\..\Helper\DirectXTK-master\Src\ScreenGrab.h" />
     <ClInclude Include="..\..\..\Helper\imgui-master\examples\imgui_impl_dx11.h" />
     <ClInclude Include="..\..\..\Helper\imgui-master\examples\imgui_impl_win32.h" />
     <ClInclude Include="..\..\..\Helper\imgui-master\imconfig.h" />
@@ -199,6 +202,7 @@
     <ClInclude Include="Input.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Perlin.h" />
+    <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="SysDef.h" />
     <ClInclude Include="Terrain.h" />
   </ItemGroup>

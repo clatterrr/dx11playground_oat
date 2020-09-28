@@ -1,19 +1,20 @@
 //commit 2
 
 #include "SysDef.h"
+#include <wincodec.h>
 
 
-IDXGISwapChain* sp_swapchain;
-ID3D11Device* sp_device;
-ID3D11DeviceContext* sp_context;
-ID3D11RenderTargetView* sp_rtv;
+ComPtr<IDXGISwapChain> sp_swapchain;
+ComPtr<ID3D11Device> sp_device;
+ComPtr<ID3D11DeviceContext> sp_context;
+ComPtr<ID3D11RenderTargetView> sp_rtv;
 
 ID3D11Buffer* triangleVertBuffer;
 ID3D11Buffer* IndexBuffer;
 ID3D11VertexShader* VS;
 ID3D11PixelShader* PS;
-ID3D11DepthStencilView* depthStencilView;
-ID3D11Texture2D* depthStencilBuffer;
+ComPtr<ID3D11DepthStencilView> depthStencilView;
+ComPtr<ID3D11Texture2D> depthStencilBuffer;
 ComPtr<ID3D11InputLayout> sp_VertexLayout;
 ComPtr<ID3D11InputLayout> sp_VertexLayout2;
 
@@ -25,7 +26,7 @@ float red = 0.0f, green = 0.0f, blue = 0.0f;
 int colormodr = 1, colormodg = 1, colormodeb = 1;
 
 const int Width = 800;
-const int Height = 600;
+const int Height = 800;
 
 LPCTSTR g_szClassName = L"BzTutsApp";
 WNDCLASSEX wc;
@@ -48,7 +49,7 @@ struct TransformCBuffer
 
 //09-Input
 Input i_input;
-ID3D11RasterizerState* WireFrame;
+ComPtr<ID3D11RasterizerState> RSDepth;
 ComPtr<ID3D11SamplerState> sp_SamplerState;
 std::vector<ComPtr<ID3D11ShaderResourceView>> m_ATex;
 ComPtr<ID3D11DepthStencilState> DSSLessEqual;
@@ -86,6 +87,9 @@ D3D11_VIEWPORT						m_OutputViewPort = {};	// 输出所用的视口
 
 //13 - Miracle Terrain
 Terrain terrain;
+ComPtr<ID3D11Texture2D> BackBuffer;
+ShadowMap shadow;
+ComPtr<ID3D11ShaderResourceView> WhyThisSRVFailed;
 
 UINT vsize = 0, isize = 0, vk = 0, vi = 0;
 
@@ -199,7 +203,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(sp_device, sp_context);
+    ImGui_ImplDX11_Init(sp_device.Get(), sp_context.Get());
     if (!InitScene())
     {
         MessageBox(NULL, L"Init Scene Failed!", L"Error!",
@@ -291,33 +295,48 @@ bool Initd3dWindow(HINSTANCE hInstance)
     swapChianDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL,
-        NULL, D3D11_SDK_VERSION, &swapChianDesc, &sp_swapchain, &sp_device, NULL, &sp_context);
+        NULL, D3D11_SDK_VERSION, &swapChianDesc, sp_swapchain.GetAddressOf(), sp_device.GetAddressOf(), NULL, sp_context.GetAddressOf());
 
-    ID3D11Texture2D* BackBuffer;
 
-    sp_swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&BackBuffer);
-    sp_device->CreateRenderTargetView(BackBuffer, NULL, &sp_rtv);
-    BackBuffer->Release();
 
+    sp_swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(BackBuffer.GetAddressOf()));
+    sp_device->CreateRenderTargetView(BackBuffer.Get(), NULL, sp_rtv.GetAddressOf());
+    //back buffer is not zero,ignore the green line
     D3D11_TEXTURE2D_DESC depthStencilDesc;
-    depthStencilDesc.Width = Width;
-    depthStencilDesc.Height = Height;
+    depthStencilDesc.Width = 800;
+    depthStencilDesc.Height = 800;
     depthStencilDesc.MipLevels = 1;
     depthStencilDesc.ArraySize = 1;
-    depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;//必须是TypeLess或者BindShaderResource，否则无法创建成功
     depthStencilDesc.SampleDesc.Count = 1;
     depthStencilDesc.SampleDesc.Quality = 0;
     depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
-    depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
     depthStencilDesc.CPUAccessFlags = 0;
     depthStencilDesc.MiscFlags = 0;
 
-    sp_device->CreateTexture2D(&depthStencilDesc, NULL, &depthStencilBuffer);
-    sp_device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
-    sp_device->CreateTexture2D(&depthStencilDesc, NULL, &newdepthStencilBuffer);
-    sp_device->CreateDepthStencilView(newdepthStencilBuffer, NULL, &newdepthStencilView);
-    sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
+    D3D11_DEPTH_STENCIL_VIEW_DESC descView;
+    descView.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    descView.Flags = 0;
+    descView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    descView.Texture2D.MipSlice = 0;
 
+    hr = sp_device->CreateTexture2D(&depthStencilDesc, nullptr, depthStencilBuffer.GetAddressOf());
+
+   hr = sp_device->CreateDepthStencilView(depthStencilBuffer.Get(), &descView, depthStencilView.GetAddressOf());
+
+    //depthStencilBuffer 要使用智能指针，否则会提示一绿线，可能为0
+//    sp_device->CreateTexture2D(&depthStencilDesc, NULL, &newdepthStencilBuffer);
+   // sp_device->CreateDepthStencilView(newdepthStencilBuffer, NULL, &newdepthStencilView);
+    sp_context->OMSetRenderTargets(1, sp_rtv.GetAddressOf(), depthStencilView.Get());
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+    WhyThisSRVFailed.Reset();
+    hr =    sp_device->CreateShaderResourceView(depthStencilBuffer.Get(), &srvDesc, WhyThisSRVFailed.GetAddressOf());
 
 
     return true;
@@ -422,6 +441,9 @@ bool InitScene()
         return 0;
     }
 
+    shadow.InitResource(sp_device.Get(),sp_context.Get());
+
+ //   sp_device->CreateRenderTargetView(BackBuffer, NULL, shadow.ShadowDepthRTV.GetAddressOf());
     GeometryGenerator geoGen;
     meshs.empty();
 
@@ -548,22 +570,28 @@ bool InitScene()
     camera.SetRotation(-0.01f, 0.0f, 0.0f);
     camera.GetProjMatrix();
 
-    D3D11_RASTERIZER_DESC wfdesc;
-    ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
-    wfdesc.FillMode = D3D11_FILL_WIREFRAME;
-    wfdesc.CullMode = D3D11_CULL_NONE;
-    result = sp_device->CreateRasterizerState(&wfdesc, &WireFrame);
+    D3D11_RASTERIZER_DESC rasterizerDesc;
+    ZeroMemory(&rasterizerDesc, sizeof(rasterizerDesc));
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_BACK;
+    rasterizerDesc.FrontCounterClockwise = false;
+    rasterizerDesc.DepthClipEnable = true;
+    rasterizerDesc.DepthBias = 100000;
+    rasterizerDesc.DepthBiasClamp = 0.0f;
+    rasterizerDesc.SlopeScaledDepthBias = 1.0f;
+    result = sp_device->CreateRasterizerState(&rasterizerDesc, RSDepth.GetAddressOf());
 
-    //sp_context->RSSetState(WireFrame);//是否开启线框
+    sp_context->RSSetState(RSDepth.Get());
+//    sp_context->OMSetDepthStencilState();
     m_ATex.resize(2);
-    result = CreateWICTextureFromFile(sp_device, L"grassland.png", nullptr, m_ATex[0].GetAddressOf());
+    result = CreateWICTextureFromFile(sp_device.Get(), L"grassland.png", nullptr, m_ATex[0].GetAddressOf());
     if (FAILED(result))
     {
         MessageBox(nullptr,
             L"Create WIC Failed", L"Error", MB_OK);
         return 0;
     }
-    result = CreateWICTextureFromFile(sp_device, L"tex2.png", nullptr, m_ATex[1].GetAddressOf());
+    result = CreateWICTextureFromFile(sp_device.Get(), L"tex2.png", nullptr, m_ATex[1].GetAddressOf());
     if (FAILED(result))
     {
         MessageBox(nullptr,
@@ -610,9 +638,14 @@ bool InitScene()
     srvDesc.Texture2D.MipLevels = 1;
 
     result = sp_device->CreateShaderResourceView(skyTextures.Get(), &srvDesc, skyCubeSRV.GetAddressOf());
-    result = CreateWICTextureFromFile(sp_device,L"sun.png",nullptr,skyCubeSRV.GetAddressOf(),0);
+    if (FAILED(result))
+    {
+        MessageBox(NULL, L"Another Failed Failed", L"Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+    }
+    result = CreateWICTextureFromFile(sp_device.Get(),L"sun.png",nullptr,skyCubeSRV.GetAddressOf(),0);
 
-    D3D11_RASTERIZER_DESC rasterizerDesc;
+
     // 无背面剔除模式
     rasterizerDesc.FillMode = D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
@@ -782,11 +815,19 @@ void DrawScene()
     sp_context->RSSetViewports(1, &m_OutputViewPort);
     sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
     //why viewport disappeared*/
+    if (!depthStencilView)
+    {
+        //MessageBox(nullptr,
+         //   L"Create Depth File Failed", L"Error", MB_OK);
+    }
+    sp_context->OMSetRenderTargets(1, sp_rtv.GetAddressOf(), depthStencilView.Get());
+    sp_context->ClearRenderTargetView(sp_rtv.Get(), bgColor);
+   sp_context->ClearDepthStencilView(depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
 
 
-    sp_context->ClearRenderTargetView(sp_rtv, bgColor);
-   sp_context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
-    sp_context->OMSetRenderTargets(1, &sp_rtv, depthStencilView);
+  //  sp_context->OMSetRenderTargets(1, shadow.ShadowDepthRTV.GetAddressOf(), shadow.ShadowDepthDSV.Get());;
+  //  sp_context->ClearRenderTargetView(shadow.ShadowDepthRTV.Get(), bgColor);
+  //   sp_context->ClearDepthStencilView(shadow.ShadowDepthDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0.0f);
     sp_context->RSSetViewports(1, &viewport);
    
    /* sp_context->DrawIndexed(totalIndices - meshs[meshs.size() - 1].Indices.size(), 0, 0);
@@ -807,12 +848,33 @@ void DrawScene()
    sp_context->DrawIndexed(meshs[meshs.size() - 1].Indices.size(), totalIndices - meshs[meshs.size() - 1].Indices.size(), 0);*/
 
  
-    terrain.DrawTerrain(sp_device, sp_context, camera.GetPosition());
-    sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
+    terrain.DrawTerrain(sp_device.Get(), sp_context.Get(), camera.GetPosition());
+
     terrain.lod0isize = 96;// why this become 0?
-    sp_context->DrawIndexed(terrain.lod0isize, 0, 0);
     sp_context->PSSetShaderResources(0, 1, m_ATex[1].GetAddressOf());
     sp_context->DrawIndexed(terrain.lod1isize - terrain.lod0isize, terrain.lod0isize, 0);
+ //   sp_context->PSSetShaderResources(0, 1, m_ATex[0].GetAddressOf());
+    sp_context->PSSetShaderResources(0, 1, WhyThisSRVFailed.GetAddressOf());//Why this SRV Failed is no longer failed
+    sp_context->DrawIndexed(terrain.lod0isize, 0, 0);
+    if (WhyThisSRVFailed.Get())
+    {
+        MessageBox(NULL, L"SRV is OK", L"Error!",
+            MB_ICONEXCLAMATION | MB_OK);
+    }
+  //  SaveWICTextureToFile(sp_context, BackBuffer, GUID_ContainerFormatPng, L"output.png");
+ hr =  SaveWICTextureToFile(sp_context.Get(), depthStencilBuffer.Get(), GUID_ContainerFormatPng, L"output.png");
+ if (FAILED(hr))
+ {
+     MessageBox(NULL, L"save wic is failed", L"Error!",
+         MB_ICONEXCLAMATION | MB_OK);
+ }
+    hr = SaveDDSTextureToFile(sp_context.Get(), depthStencilBuffer.Get(), L"output.dds");
+ if (FAILED(hr))
+ {
+     MessageBox(NULL, L"save dds is failed", L"Error!",
+         MB_ICONEXCLAMATION | MB_OK);
+ }
+    BackBuffer->Release();
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -839,6 +901,7 @@ void DrawScene()
     sp_context->UpdateSubresource(cbPixelCBuffer, 0, NULL, &cbPerPixel, 0, 0);
 
     sp_swapchain->Present(0, 0);
+
 }
 
 int messageloop()
@@ -870,7 +933,7 @@ void CleanUp()
     sp_swapchain->Release();
     sp_device->Release();
     sp_context->Release();
-    sp_rtv->Release();
+   // sp_rtv->Release();
 
     triangleVertBuffer->Release();
     VS->Release();

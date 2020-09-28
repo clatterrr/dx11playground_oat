@@ -60,6 +60,12 @@
     <ClCompile Include="Terrain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\Helper\DirectXTK-master\Src\ScreenGrab.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shadersPS.hlsl">
@@ -125,6 +131,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Terrain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\Helper\DirectXTK-master\Src\ScreenGrab.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

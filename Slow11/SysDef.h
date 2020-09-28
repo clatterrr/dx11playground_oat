@@ -14,9 +14,11 @@
 #include "Input.h"
 #include "Light.h"
 #include "Terrain.h"
+#include "ShadowMap.h"
 
 //extern library
 #include "WICTextureLoader.h"
+#include "ScreenGrab.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
